@@ -1,0 +1,47 @@
+Audio Upgrade TODO
+
+[ ] 1. Event System
+    - إنشاء systems/event_system.py
+    - إضافة emit(event_name, data)
+    - إضافة subscribe(event_name, handler)
+    - الهدف: أي شيء يحصل في اللعبة يرسل حدث بدل ما نستدعي الصوت يدوياً من كل مكان.
+
+[ ] 2. Audio Manager خارجي
+    - تعديل/استبدال systems/audio_system.py
+    - تحميل ملفات wav/ogg من assets/sounds
+    - عدم كسر اللعبة لو ملف صوت ناقص
+    - دعم play("shoot") و play_music("combat")
+
+[ ] 3. Assets Folder
+    - إنشاء:
+      assets/
+        sounds/
+        music/
+    - وضع ملفات الصوت داخلها لاحقاً.
+
+[ ] 4. Sounds WAV/OGG
+    - shoot.wav
+    - hit.wav
+    - enemy_death.wav
+    - dash.wav
+    - level_up.wav
+    - room_clear.wav
+    - boss_spawn.wav
+    - boss_phase.wav
+    - menu_select.wav
+    - hub.ogg
+    - combat.ogg
+    - boss.ogg
+
+[ ] 5. ربط الأصوات بالأحداث
+    - enemy_hit -> hit.wav
+    - enemy_killed -> enemy_death.wav
+    - player_shoot -> shoot.wav
+    - player_dash -> dash.wav
+    - level_up -> level_up.wav
+    - room_cleared -> room_clear.wav
+    - boss_spawned -> boss_spawn.wav
+    - boss_phase_changed -> boss_phase.wav
+    - state_changed_to_hub -> hub music
+    - state_changed_to_room -> combat music
+    - state_changed_to_boss -> boss music

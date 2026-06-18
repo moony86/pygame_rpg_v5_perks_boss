@@ -1,50 +1,108 @@
-import math
+from pathlib import Path
 import pygame
+
+from config import CONFIG
 
 
 class AudioSystem:
     def __init__(self):
         self.enabled = False
         self.sounds = {}
+        self.current_music = None
+
+        self.sounds_path = Path("assets/sounds")
+        self.music_path = Path("assets/music")
+
         try:
-            pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
-            import numpy as np
-            self.np = np
+            pygame.mixer.init()
             self.enabled = True
-            self._build_sounds()
-        except Exception:
-            self.enabled = False
+        except Exception as error:
+            print(f"[Audio] Disabled: {error}")
+            return
 
-    def _tone(self, freq=440, duration=0.08, volume=0.25, wave="sine"):
-        np = self.np
-        sample_rate = 22050
-        t = np.linspace(0, duration, int(sample_rate * duration), False)
+        self.load_sounds()
 
-        if wave == "square":
-            audio = np.sign(np.sin(2 * np.pi * freq * t))
-        elif wave == "noise":
-            audio = np.random.uniform(-1, 1, len(t))
-        else:
-            audio = np.sin(2 * np.pi * freq * t)
+    def load_sounds(self):
+        sound_files = {
+            "shoot": "shoot.wav",
+            "hit": "hit.wav",
+            "enemy_death": "enemy_death.wav",
+            "dash": "dash.wav",
+            "level_up": "level_up.wav",
+            "room_clear": "room_clear.wav",
+            "boss_spawn": "boss_spawn.wav",
+            "boss_phase": "boss_phase.wav",
+            "menu_select": "menu_select.wav",
+        }
 
-        envelope = np.linspace(1, 0, len(t))
-        audio = audio * envelope * volume
-        arr = (audio * 32767).astype(np.int16)
-        return pygame.sndarray.make_sound(arr)
+        for name, filename in sound_files.items():
+            path = self.sounds_path / filename
 
-    def _build_sounds(self):
-        self.sounds["shoot"] = self._tone(720, 0.045, 0.18, "square")
-        self.sounds["hit"] = self._tone(210, 0.05, 0.20, "noise")
-        self.sounds["death"] = self._tone(120, 0.12, 0.25, "square")
-        self.sounds["level"] = self._tone(880, 0.18, 0.25, "sine")
-        self.sounds["room"] = self._tone(520, 0.25, 0.22, "sine")
-        self.sounds["boss"] = self._tone(90, 0.35, 0.35, "square")
-        self.sounds["dash"] = self._tone(480, 0.09, 0.22, "noise")
-        self.sounds["select"] = self._tone(620, 0.06, 0.18, "sine")
+            if not path.exists():
+                print(f"[Audio] Missing sound: {path}")
+                continue
+
+            try:
+                sound = pygame.mixer.Sound(str(path))
+                volume = CONFIG["master_volume"] * CONFIG["sfx_volume"] * CONFIG["sound_volumes"].get(name, 1.0)
+                sound.set_volume(volume)
+                self.sounds[name] = sound
+            except Exception as error:
+                print(f"[Audio] Failed loading {path}: {error}")
 
     def play(self, name):
         if not self.enabled:
             return
-        snd = self.sounds.get(name)
-        if snd:
-            snd.play()
+
+        if not CONFIG["sfx_enabled"]:
+            return
+
+        sound = self.sounds.get(name)
+
+        if sound:
+            sound.play()
+
+    def play_music(self, name, loops=-1):
+        if not self.enabled:
+            return
+
+        if not CONFIG["music_enabled"]:
+            return
+
+        if self.current_music == name:
+            return
+
+        path = self.music_path / name
+
+        if not path.exists():
+            print(f"[Audio] Missing music: {path}")
+            return
+
+        try:
+            pygame.mixer.music.load(str(path))
+            pygame.mixer.music.set_volume(CONFIG["music_volume"])
+            pygame.mixer.music.play(loops)
+            self.current_music = name
+        except Exception as error:
+            print(f"[Audio] Failed playing music {path}: {error}")
+
+    def stop_music(self):
+        if not self.enabled:
+            return
+
+        pygame.mixer.music.stop()
+        self.current_music = None
+
+    def apply_volumes(self):
+        for name, sound in self.sounds.items():
+            volume = (
+                CONFIG["master_volume"]
+                * CONFIG["sfx_volume"]
+                * CONFIG["sound_volumes"].get(name, 1.0)
+            )
+            sound.set_volume(volume)
+
+        if self.enabled:
+            pygame.mixer.music.set_volume(
+                CONFIG["master_volume"] * CONFIG["music_volume"]
+            )

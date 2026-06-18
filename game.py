@@ -24,6 +24,7 @@ from systems.ui import (
     draw_shop_hint,
     draw_perk_select,
     draw_room_banner,
+    draw_pause_menu,
 )
 from systems.collision_system import CollisionSystem
 from systems.world_utils import (
@@ -35,6 +36,8 @@ from systems.aim_system import update_player_aim
 from systems.shooting_system import ShootingSystem
 from systems.boss_attack_system import BossAttackSystem
 from systems.scene_system import enter_hub, enter_room, enter_boss
+from systems.event_system import EventSystem
+from config import CONFIG
 from data.dialogues import DIALOGUES
 
 
@@ -42,7 +45,10 @@ class Game:
     def __init__(self):
         pygame.init()
         pygame.display.set_caption("Blue Cube v5")
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.screen = pygame.display.set_mode(
+            (SCREEN_WIDTH, SCREEN_HEIGHT),
+            pygame.RESIZABLE
+        )
         self.clock = pygame.time.Clock()
 
         self.font = pygame.font.SysFont("Arial", 22)
@@ -62,6 +68,12 @@ class Game:
         self.effects = EffectsSystem()
         self.audio = AudioSystem()
         self.collision = CollisionSystem()
+        self.events = EventSystem()
+        self.shooting = ShootingSystem()
+        self.boss_attacks = BossAttackSystem()
+
+        self.setup_event_listeners()
+        
 
         self.npcs = []
         self.portal_rect = pygame.Rect(MAP_SIZE // 2 - 45, MAP_SIZE // 2 - 170, 90, 55)
@@ -72,13 +84,24 @@ class Game:
         self.room_number = 1
         self.room_kills = 0
         self.total_kills = 0
-        self.shooting = ShootingSystem()
         self.message = ""
 
         self.reset_run()
+        
 
-        self.boss_attacks = BossAttackSystem()
+    def setup_event_listeners(self):
+        self.events.subscribe("player_shoot", lambda data: self.audio.play("shoot"))
+        self.events.subscribe("player_dash", lambda data: self.audio.play("dash"))
+        self.events.subscribe("enemy_hit", lambda data: self.audio.play("hit"))
+        self.events.subscribe("enemy_killed", lambda data: self.audio.play("enemy_death"))
+        self.events.subscribe("level_up", lambda data: self.audio.play("level_up"))
+        self.events.subscribe("room_cleared", lambda data: self.audio.play("room_clear"))
+        self.events.subscribe("boss_spawned", lambda data: self.audio.play("boss_spawn"))
+        self.events.subscribe("boss_phase_changed", lambda data: self.audio.play("boss_phase"))
 
+        self.events.subscribe("state_hub", lambda data: self.audio.play_music("hub.ogg"))
+        self.events.subscribe("state_room", lambda data: self.audio.play_music("combat.ogg"))
+        self.events.subscribe("state_boss", lambda data: self.audio.play_music("boss.ogg"))
 
     def reset_run(self):
         self.player.reset()
@@ -88,6 +111,7 @@ class Game:
         self.message = ""
         self.effects.reset()
         enter_hub(self)
+        self.events.emit("run_started")
 
     def open_perk_select_if_needed(self):
         if self.player.pending_level_ups > 0 and self.state in (GameState.HUB, GameState.ROOM, GameState.BOSS):
@@ -103,12 +127,38 @@ class Game:
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.quit()
+                    if self.state in (GameState.ROOM, GameState.BOSS, GameState.HUB):
+                        self.previous_state = self.state
+                        self.state = GameState.PAUSED
+                    elif self.state == GameState.PAUSED:
+                        self.state = self.previous_state
+                    else:
+                        self.quit()
 
                 if self.state == GameState.MENU:
                     if event.key == pygame.K_RETURN:
                         self.reset_run()
                         self.state = GameState.HUB
+
+                elif self.state == GameState.PAUSED:
+                    if event.key == pygame.K_q:
+                        self.quit()
+                
+                elif event.key == pygame.K_LEFTBRACKET:
+                    CONFIG["music_volume"] = max(0.0, CONFIG["music_volume"] - 0.05)
+                    self.audio.apply_volumes()
+                
+                elif event.key == pygame.K_RIGHTBRACKET:
+                    CONFIG["music_volume"] = min(1.0, CONFIG["music_volume"] + 0.05)
+                    self.audio.apply_volumes()
+                
+                elif event.key == pygame.K_MINUS:
+                    CONFIG["sfx_volume"] = max(0.0, CONFIG["sfx_volume"] - 0.05)
+                    self.audio.apply_volumes()
+                
+                elif event.key == pygame.K_EQUALS:
+                    CONFIG["sfx_volume"] = min(1.0, CONFIG["sfx_volume"] + 0.05)
+                    self.audio.apply_volumes()
 
                 elif self.state in (GameState.GAME_OVER, GameState.WIN):
                     if event.key == pygame.K_RETURN:
@@ -169,7 +219,11 @@ class Game:
         self.player.update(dt, self.collision.get_colliders())
 
         if pygame.mouse.get_pressed()[0]:
-            self.shooting.try_shoot(self.player, self.projectiles, self.audio)
+            did_shoot = self.shooting.try_shoot(self.player, self.projectiles, self.audio)
+            if did_shoot:
+                self.events.emit("player_shoot", {
+                    "player": self.player
+                })
 
         if self.state == GameState.ROOM:
             self.rooms.update(dt)
@@ -297,6 +351,16 @@ class Game:
                 self.screen.blit(txt, (22, SCREEN_HEIGHT - 34))
 
             self.dialogue.draw(self.screen)
+        
+        elif self.state == GameState.PAUSED:
+            draw_world_background(
+                self.screen,
+                self.camera,
+                hub=self.previous_state == GameState.HUB,
+                room_type=self.rooms.room_type,
+            )
+            self.player.draw(self.screen, self.camera)
+            draw_pause_menu(self.screen, self.big_font, self.font)
 
         elif self.state == GameState.GAME_OVER:
             draw_end_screen(self.screen, self.big_font, self.font, "GAME OVER", f"Rooms reached: {self.room_number} | Total kills: {self.total_kills}")

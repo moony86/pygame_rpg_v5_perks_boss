@@ -108,3 +108,13 @@ def draw_room_banner(surface, big_font, font, room_system):
 
     draw_text(surface, big_font, title, SCREEN_WIDTH // 2, 220, color, center=True)
     draw_text(surface, font, message, SCREEN_WIDTH // 2, 270, WHITE, center=True)
+
+
+def draw_pause_menu(surface, big_font, font):
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 170))
+    surface.blit(overlay, (0, 0))
+
+    draw_text(surface, big_font, "PAUSED", SCREEN_WIDTH // 2, 180, WHITE, center=True)
+    draw_text(surface, font, "ESC - Resume", SCREEN_WIDTH // 2, 260, WHITE, center=True)
+    draw_text(surface, font, "Q - Quit Game", SCREEN_WIDTH // 2, 300, WHITE, center=True)

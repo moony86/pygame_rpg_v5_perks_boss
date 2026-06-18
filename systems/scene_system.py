@@ -21,6 +21,7 @@ def enter_hub(game):
     game.enemies.clear()
     game.projectiles.clear()
     game.enemy_bullets.clear()
+    game.events.emit("state_hub")
 
     game.npcs = [
         NPC(MAP_SIZE // 2 - 150, MAP_SIZE // 2, "Blacksmith", "blacksmith", "blacksmith_intro"),
@@ -43,6 +44,7 @@ def enter_room(game):
     game.projectiles.clear()
     game.enemy_bullets.clear()
     game.room_kills = 0
+    game.events.emit("state_room")
 
     room_type = game.rooms.choose_next_room(game.room_number)
     game.spawn.reset(game.room_number, room_type)
@@ -73,6 +75,8 @@ def enter_boss(game):
     game.enemies.clear()
     game.projectiles.clear()
     game.enemy_bullets.clear()
+    game.events.emit("state_boss")
+    game.events.emit("boss_spawned")
 
     boss = Enemy(
         MAP_SIZE // 2,
