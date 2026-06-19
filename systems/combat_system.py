@@ -32,6 +32,32 @@ class CombatSystem:
                 if not enemy.alive or not projectile.can_hit(enemy):
                     continue
                 if projectile.rect.colliderect(enemy.rect):
+                    if enemy.type == EnemyType.BOSS and enemy.phase == 1:
+                        enemy.shield -= projectile.damage
+                        enemy.hit_flash = 0.08
+
+                        if effects:
+                            effects.damage_number(projectile.damage, enemy.rect.midtop, critical=projectile.critical)
+                            effects.ring(enemy.rect.center, radius=38, life=0.18, width=2)
+                        
+                        if audio:
+                            audio.play("hit")
+
+                        projectile.register_hit(enemy)
+
+                        if enemy.shield <=0:
+                            enemy.shield = 0
+                            enemy.phase = 2
+
+                            if effects:
+                                effects.ring(enemy.rect.center, radius=150, life=0.65, width=5)
+                                effects.message("SHIELD BROKEN", enemy.rect.midtop)
+                            
+                            if audio:
+                                audio.play("boss_phase")
+
+                        break
+
                     killed = enemy.take_damage(projectile.damage)
                     if effects:
                         effects.damage_number(projectile.damage, enemy.rect.midtop, critical=projectile.critical)

@@ -59,6 +59,7 @@ class RoomSystem:
         self.reward_multiplier = 1
         self.banner_timer = 0.0
 
+
     def choose_next_room(self, room_number):
         if room_number == 1:
             self.room_type = RoomType.COMBAT

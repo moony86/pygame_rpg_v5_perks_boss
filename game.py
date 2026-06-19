@@ -17,15 +17,15 @@ from systems.perk_system import PerkSystem
 from systems.room_system import RoomSystem, RoomType
 from systems.effects import EffectsSystem
 from systems.audio_system import AudioSystem
-from systems.ui import (
-    draw_hud,
-    draw_menu,
-    draw_end_screen,
-    draw_shop_hint,
-    draw_perk_select,
-    draw_room_banner,
-    draw_pause_menu,
-)
+
+from ui.menu import draw_menu
+from ui.pause import draw_pause_menu
+from ui.perk_screen import draw_perk_select
+from ui.hud import draw_hud
+from ui.shop import draw_shop_hint
+from ui.end_screen import draw_end_screen
+from ui.room_banner import draw_room_banner
+
 from systems.collision_system import CollisionSystem
 from systems.world_utils import (
     rotate_vector,
@@ -55,6 +55,18 @@ class Game:
 
         self.font = pygame.font.SysFont("Arial", 22)
         self.big_font = pygame.font.SysFont("Arial", 48)
+
+        self.menu_title_surf = self.big_font.render("BLUE CUBE v5", True, (255, 255, 255))
+        self.menu_hint_surf = self.font.render("Click on an option to select", True, (255, 255, 255))
+
+        self.rect_new_run = pygame.Rect(0, 0, 200, 50)
+        self.rect_new_run.center = (SCREEN_WIDTH // 2, 350)
+
+        self.rect_quit = pygame.Rect(0, 0, 200, 50)
+        self.rect_quit.center = (SCREEN_WIDTH // 2, 430)
+
+        self.text_new_run = self.font.render("New Run", True, (0, 255, 0))
+        self.text_quit = self.font.render("Quit", True, (255, 0, 0))
 
         self.state = GameState.MENU
         self.previous_state = GameState.HUB
@@ -225,7 +237,7 @@ class Game:
 
     def draw(self):
         if self.state == GameState.MENU:
-            draw_menu(self.screen, self.big_font, self.font)
+            draw_menu(self.screen, self)
 
         elif self.state == GameState.PERK_SELECT:
             self.perk_card_rects = draw_perk_select(
@@ -307,6 +319,7 @@ class Game:
 
     def run(self):
         while True:
+            pygame.mouse.set_visible(self.state == GameState.MENU)
             dt = self.clock.tick(FPS) / 1000.0
             self.input.handle_events(self)
             self.update(dt)
