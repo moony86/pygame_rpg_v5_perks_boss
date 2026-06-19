@@ -1,0 +1,74 @@
+Blue Cube TODO
+
+[ ] 1. Main Menu حقيقي
+    - New Run
+    - Settings
+    - Quit
+    - لا يبدأ Hub إلا بعد New Run
+
+[ ] 2. Settings Menu
+    - Music slider بالماوس
+    - SFX slider بالماوس
+    - Back
+    - لاحقاً: حفظ الإعدادات في ملف JSON
+
+[ ] 3. تنظيف UI/Input
+    - فصل menu input
+    - فصل pause input
+    - فصل settings input
+    - تقليل اعتماد game.py على تفاصيل الواجهة
+
+[ ] 4. نظام قصة أولي
+    - لماذا اللاعب يدخل الرومات؟
+    - من هو Gatekeeper؟
+    - من هو Blacksmith؟
+    - من هو Healer؟
+    - ما هو البوس؟
+
+[ ] 5. NPC Identity
+    - حوارات تتغير بعد كل Room
+    - NPCs يعطون تلميحات
+    - كل NPC له وظيفة مختلفة فعلاً
+
+[ ] 6. فرق واضح بين Perks و NPC Upgrades
+    - Perks مؤقتة للجولة فقط
+    - NPC Upgrades دائمة أو تغيّر السلاح/الأسلوب
+    - منع تكرار نفس معنى التطوير في الاثنين
+
+[ ] 7. إعادة موازنة البوس
+    - لا نعالجها بزيادة HP فقط
+    - Shield/Armor يقلل الضرر
+    - Phase 2 أخطر
+    - Summons أكثر ذكاء
+    - هجمات تجبر اللاعب يتحرك
+
+[ ] 8. هوية المرحلة
+    - Hub ليس ساحة فاضية
+    - جدران/أعمدة/أشجار/بوابة
+    - Collision objects
+    - لون/جو مختلف لكل Room Type
+
+[ ] 9. تحسين Perk Screen
+    - منع اختيار بالغلط بالكامل
+    - حماية بعد الاختيار
+    - Hover أفضل
+    - اختيار بالماوس مكتمل
+
+[ ] 10. حفظ التقدم والإعدادات
+    - config.json
+    - save.json
+    - حفظ الصوت
+    - حفظ التطويرات الدائمة لاحقاً
+
+[ ] 11. تحسين الإحساس القتالي
+    - Screen shake
+    - Hit stop خفيف
+    - Particles
+    - صوتيات أقوى
+    - مؤثرات للـCritical
+
+[ ] 12. Main build polish
+    - تنظيف imports
+    - حذف dead code
+    - اختبار كل State
+    - README محدث للتحكمات

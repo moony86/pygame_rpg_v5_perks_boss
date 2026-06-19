@@ -35,15 +35,17 @@ from systems.world_utils import (
 from systems.aim_system import update_player_aim
 from systems.shooting_system import ShootingSystem
 from systems.boss_attack_system import BossAttackSystem
-from systems.scene_system import enter_hub, enter_room, enter_boss
+from systems.scene_system import enter_hub
 from systems.event_system import EventSystem
-from config import CONFIG
+from systems.crosshair_system import CrosshairSystem
+from systems.input_system import InputSystem
 from data.dialogues import DIALOGUES
 
 
 class Game:
     def __init__(self):
         pygame.init()
+        pygame.mouse.set_visible(False)
         pygame.display.set_caption("Blue Cube v5")
         self.screen = pygame.display.set_mode(
             (SCREEN_WIDTH, SCREEN_HEIGHT),
@@ -71,6 +73,8 @@ class Game:
         self.events = EventSystem()
         self.shooting = ShootingSystem()
         self.boss_attacks = BossAttackSystem()
+        self.crosshair = CrosshairSystem()
+        self.perk_card_rects = []
 
         self.setup_event_listeners()
         
@@ -81,12 +85,16 @@ class Game:
         self.projectiles = []
         self.enemy_bullets = []
 
+        self.input = InputSystem()
+        self.perk_input_lock = 0.0
+        self.pause_sliders = {}
+
         self.room_number = 1
         self.room_kills = 0
         self.total_kills = 0
         self.message = ""
 
-        self.reset_run()
+        #self.reset_run()
         
 
     def setup_event_listeners(self):
@@ -94,10 +102,12 @@ class Game:
         self.events.subscribe("player_dash", lambda data: self.audio.play("dash"))
         self.events.subscribe("enemy_hit", lambda data: self.audio.play("hit"))
         self.events.subscribe("enemy_killed", lambda data: self.audio.play("enemy_death"))
-        self.events.subscribe("level_up", lambda data: self.audio.play("level_up"))
+        self.events.subscribe("perk_available",lambda data: self.audio.play("level_up"))
         self.events.subscribe("room_cleared", lambda data: self.audio.play("room_clear"))
         self.events.subscribe("boss_spawned", lambda data: self.audio.play("boss_spawn"))
         self.events.subscribe("boss_phase_changed", lambda data: self.audio.play("boss_phase"))
+        self.events.subscribe("npc_purchase", lambda data: self.audio.play("menu_select"))
+
 
         self.events.subscribe("state_hub", lambda data: self.audio.play_music("hub.ogg"))
         self.events.subscribe("state_room", lambda data: self.audio.play_music("combat.ogg"))
@@ -118,93 +128,8 @@ class Game:
             self.previous_state = self.state
             self.state = GameState.PERK_SELECT
             self.perks.roll_options()
-            self.audio.play("level")
-
-    def handle_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.quit()
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    if self.state in (GameState.ROOM, GameState.BOSS, GameState.HUB):
-                        self.previous_state = self.state
-                        self.state = GameState.PAUSED
-                    elif self.state == GameState.PAUSED:
-                        self.state = self.previous_state
-                    else:
-                        self.quit()
-
-                if self.state == GameState.MENU:
-                    if event.key == pygame.K_RETURN:
-                        self.reset_run()
-                        self.state = GameState.HUB
-
-                elif self.state == GameState.PAUSED:
-                    if event.key == pygame.K_q:
-                        self.quit()
-                
-                elif event.key == pygame.K_LEFTBRACKET:
-                    CONFIG["music_volume"] = max(0.0, CONFIG["music_volume"] - 0.05)
-                    self.audio.apply_volumes()
-                
-                elif event.key == pygame.K_RIGHTBRACKET:
-                    CONFIG["music_volume"] = min(1.0, CONFIG["music_volume"] + 0.05)
-                    self.audio.apply_volumes()
-                
-                elif event.key == pygame.K_MINUS:
-                    CONFIG["sfx_volume"] = max(0.0, CONFIG["sfx_volume"] - 0.05)
-                    self.audio.apply_volumes()
-                
-                elif event.key == pygame.K_EQUALS:
-                    CONFIG["sfx_volume"] = min(1.0, CONFIG["sfx_volume"] + 0.05)
-                    self.audio.apply_volumes()
-
-                elif self.state in (GameState.GAME_OVER, GameState.WIN):
-                    if event.key == pygame.K_RETURN:
-                        self.reset_run()
-                        self.state = GameState.HUB
-
-                elif self.state == GameState.PERK_SELECT:
-                    if event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
-                        index = int(event.unicode) - 1
-                        perk = self.perks.apply(self.player, index)
-                        if perk:
-                            self.player.consume_pending_level_up()
-                            self.message = f"Perk: {perk['name']}"
-                            self.audio.play("select")
-                            self.effects.ring(self.player.rect.center, radius=130, life=0.55)
-                        self.state = self.previous_state
-                        self.open_perk_select_if_needed()
-
-                elif self.state == GameState.HUB:
-                    if event.key == pygame.K_e:
-                        npc = nearest_npc(self.player, self.npcs)
-                        if npc:
-                            if npc.role == "portal":
-                                if self.room_number > ROOMS_TO_BOSS:
-                                    enter_boss(self)
-                                else:
-                                    enter_room(self)
-                            else:
-                                self.dialogue.toggle_npc(npc)
-                        else:
-                            self.dialogue.close()
-
-                    if event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
-                        npc = nearest_npc(self.player, self.npcs)
-                        if npc and npc.role in ("blacksmith", "healer"):
-                            index = int(event.unicode) - 1
-                            self.message = self.upgrades.buy(self.player, npc.role, index)
-                            self.dialogue.show(npc.name, self.message)
-                            self.audio.play("select")
-
-                elif self.state in (GameState.ROOM, GameState.BOSS):
-                    if event.key == pygame.K_q:
-                        if self.player.try_dash():
-                            self.audio.play("dash")
-                            self.effects.ring(self.player.rect.center, radius=70, life=0.22)
-
+            self.events.emit("perk_available")
+            self.perk_input_lock = 0.25
 
     def update(self, dt):
         if self.state not in (GameState.HUB, GameState.ROOM, GameState.BOSS):
@@ -282,7 +207,7 @@ class Game:
             return
 
         if self.state == GameState.ROOM and self.rooms.is_clear(self.room_kills):
-            self.audio.play("room")
+            self.events.emit("room_cleared")
             self.effects.ring(self.player.rect.center, radius=140, life=0.75, width=5)
             self.room_number += 1
             self.message = "Room cleared. Return to the hub and upgrade."
@@ -295,12 +220,20 @@ class Game:
 
         self.open_perk_select_if_needed()
 
+        if self.perk_input_lock > 0:
+            self.perk_input_lock -= dt
+
     def draw(self):
         if self.state == GameState.MENU:
             draw_menu(self.screen, self.big_font, self.font)
 
         elif self.state == GameState.PERK_SELECT:
-            draw_perk_select(self.screen, self.big_font, self.font, self.perks.current_options)
+            self.perk_card_rects = draw_perk_select(
+                self.screen,
+                self.big_font,
+                self.font,
+                self.perks.current_options
+            )
 
         elif self.state in (GameState.HUB, GameState.ROOM, GameState.BOSS):
             draw_world_background(self.screen, self.camera, hub=self.state == GameState.HUB, room_type=self.rooms.room_type)
@@ -360,7 +293,7 @@ class Game:
                 room_type=self.rooms.room_type,
             )
             self.player.draw(self.screen, self.camera)
-            draw_pause_menu(self.screen, self.big_font, self.font)
+            self.pause_sliders = draw_pause_menu(self.screen, self.big_font, self.font)
 
         elif self.state == GameState.GAME_OVER:
             draw_end_screen(self.screen, self.big_font, self.font, "GAME OVER", f"Rooms reached: {self.room_number} | Total kills: {self.total_kills}")
@@ -368,12 +301,14 @@ class Game:
         elif self.state == GameState.WIN:
             draw_end_screen(self.screen, self.big_font, self.font, "BOSS DEFEATED", f"Level {self.player.level} | Gold {self.player.gold} | Kills {self.total_kills}")
 
+        if self.state != GameState.MENU:
+            self.crosshair.draw(self.screen)
         pygame.display.flip()
 
     def run(self):
         while True:
             dt = self.clock.tick(FPS) / 1000.0
-            self.handle_events()
+            self.input.handle_events(self)
             self.update(dt)
             self.draw()
 
