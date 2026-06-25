@@ -1,6 +1,12 @@
 import pygame
 
 from settings import ROOMS_TO_BOSS
+
+FIRST_BOSS_GATE_ROOM = 6
+
+
+def should_enter_boss(room_number):
+    return room_number in (FIRST_BOSS_GATE_ROOM, ROOMS_TO_BOSS + 1)
 from systems.world_utils import nearest_npc
 from systems.scene_system import enter_room, enter_boss
 
@@ -17,7 +23,7 @@ def handle_hub_events (game, event):
                     return
                 game.dialogue.show("Gatekeeper", "Then go. Survive the room and return stronger.")
                 game.gatekeeper_ready = False
-                if game.room_number > ROOMS_TO_BOSS:
+                if should_enter_boss(game.room_number):
                     enter_boss(game)
                 else:
                     enter_room(game)

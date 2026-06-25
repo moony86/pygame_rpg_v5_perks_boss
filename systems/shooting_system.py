@@ -46,6 +46,9 @@ class ShootingSystem:
         base_damage = PROJECTILE_DAMAGE + player.damage_bonus
         speed = PROJECTILE_SPEED + player.projectile_speed_bonus
         count = player.projectile_count
+        split_damage_scale = getattr(player, "split_damage_multiplier", 1.0)
+        if count > 1:
+            split_damage_scale *= max(0.50, 1.0 - (count - 1) * 0.10)
         crit_chance, crit_multiplier = crit_stats(player)
 
         if count <= 1:
@@ -59,7 +62,7 @@ class ShootingSystem:
         for angle in angles:
             direction = rotate_vector(player.aim_direction, angle)
             critical = random.random() < crit_chance
-            damage = int(base_damage * (crit_multiplier if critical else 1))
+            damage = max(1, int(base_damage * split_damage_scale * (crit_multiplier if critical else 1)))
 
             projectiles.append(
                 Projectile(

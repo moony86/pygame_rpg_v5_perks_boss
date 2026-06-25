@@ -1,13 +1,13 @@
 UPGRADES = {
     "blacksmith": [
-        ("Sharpen Blade", 18, "damage"),
-        ("Piercing Tips", 28, "pierce"),
-        ("Rapid Trigger", 28, "firerate"),
+        ("Sharpen Blade", 30, "damage"),
+        ("Piercing Tips", 45, "pierce"),
+        ("Rapid Trigger", 45, "firerate"),
     ],
     "healer": [
-        ("Heal", 10, "heal"),
-        ("Max Health", 24, "maxhp"),
-        ("Room Regen", 22, "regen"),
+        ("Heal", 18, "heal"),
+        ("Max Health", 38, "maxhp"),
+        ("Room Regen", 35, "regen"),
     ],
 }
 
@@ -22,11 +22,11 @@ MAX_LEVELS = {
 
 
 BASE_COSTS = {
-    "damage": 18,
-    "pierce": 28,
-    "firerate": 28,
-    "maxhp": 24,
-    "regen": 22,
+    "damage": 30,
+    "pierce": 45,
+    "firerate": 45,
+    "maxhp": 38,
+    "regen": 35,
 }
 
 
@@ -55,7 +55,7 @@ class UpgradeSystem:
             return base_cost
 
         level = self.get_level(key)
-        return int(base_cost * (1.55 ** level))
+        return int(base_cost * (1.72 ** level))
 
     def buy(self, player, npc_role, index):
         options = UPGRADES.get(npc_role, [])

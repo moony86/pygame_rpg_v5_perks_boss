@@ -36,6 +36,7 @@ class Player:
         self.projectile_count = 1
         self.spread_degrees = 0
         self.projectile_speed_bonus = 0
+        self.split_damage_multiplier = 1.0
         self.pierce = 0
         self.crit_chance = 0.0
         self.crit_multiplier = 1.75
@@ -47,7 +48,6 @@ class Player:
 
         self.pending_level_ups = 0
         self.last_upgrade_text = ""
-        self.perk_counts = {}
         self.perk_counts = {}
 
     def reset(self):
@@ -71,6 +71,7 @@ class Player:
         self.projectile_count = 1
         self.spread_degrees = 0
         self.projectile_speed_bonus = 0
+        self.split_damage_multiplier = 1.0
         self.pierce = 0
         self.crit_chance = 0.0
         self.crit_multiplier = 1.75
@@ -82,6 +83,7 @@ class Player:
 
         self.pending_level_ups = 0
         self.last_upgrade_text = ""
+        self.perk_counts = {}
 
     def build_power_score(self):
         damage_score = self.damage_bonus / 7

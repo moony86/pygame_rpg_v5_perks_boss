@@ -8,11 +8,11 @@ from settings import (
     BOSS_GOLD_REWARD,
     BOSS_DAMAGE,
 )
-from entities.enemy import EnemyType
+from entities.enemy import Enemy, EnemyType
 
-LOOT_HIT_GOLD_REWARD = 100
-LOOT_HIT_XP_REWARD = 22
-LOOT_ESCAPE_KILL_BONUS_MULTIPLIER = 10
+LOOT_HIT_GOLD_REWARD = 35
+LOOT_HIT_XP_REWARD = 12
+LOOT_ESCAPE_KILL_BONUS_MULTIPLIER = 4
 
 
 class CombatSystem:
@@ -63,6 +63,20 @@ class CombatSystem:
                         break
 
                     killed = enemy.take_damage(projectile.damage)
+                    if (
+                        enemy.type == EnemyType.BOSS
+                        and not killed
+                        and not getattr(enemy, "half_health_elite_spawned", False)
+                        and enemy.health <= enemy.max_health * 0.5
+                    ):
+                        enemy.half_health_elite_spawned = True
+                        elite = Enemy(enemy.rect.centerx + 120, enemy.rect.centery + 80, EnemyType.ELITE, difficulty=max(1.0, enemy.difficulty * 0.72))
+                        enemies.append(elite)
+                        if effects:
+                            effects.ring(elite.rect.center, radius=110, life=0.65, width=5)
+                            effects.message("ELITE GUARD SPAWNED", elite.rect.midtop)
+                        if audio:
+                            audio.play("boss_phase")
                     if enemy.type == EnemyType.LOOT:
                         player.add_gold(LOOT_HIT_GOLD_REWARD)
                         player.add_xp(LOOT_HIT_XP_REWARD)

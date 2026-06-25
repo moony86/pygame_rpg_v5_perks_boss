@@ -64,7 +64,7 @@ class Enemy:
         elif self.type == EnemyType.ELITE:
             self.rect       = pygame.Rect(x, y, 58, 58)
             self.speed      = ENEMY_SPEED * 0.82 * self.speed_scale
-            self.max_health = int(ENEMY_HEALTH * self.health_scale * 4.2)
+            self.max_health = int(ENEMY_HEALTH * self.health_scale * 4.9)
 
         elif self.type == EnemyType.HUNTER:
             self.rect       = pygame.Rect(x, y, 38, 38)

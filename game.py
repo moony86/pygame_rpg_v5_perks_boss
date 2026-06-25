@@ -427,7 +427,7 @@ class Game:
             return
         if self.room_exit_open:
             return
-        if self.rooms.room_time < 10.0:
+        if self.rooms.room_time < 15.0:
             return
         escaped = False
         for enemy in self.enemies:
@@ -438,7 +438,7 @@ class Game:
             self.enemies = [enemy for enemy in self.enemies if enemy.alive]
             self.projectiles.clear()
             self.enemy_bullets.clear()
-            self.message = "Loot Beast escaped. Exit portal opened."
+            self.message = "Loot Beasts escaped. Exit portal opened."
             self.open_room_exit()
 
     def update(self, dt):
@@ -563,7 +563,12 @@ class Game:
             return
 
         if self.state == GameState.BOSS and boss_killed:
-            self.state = GameState.WIN
+            if self.room_number > ROOMS_TO_BOSS:
+                self.state = GameState.WIN
+            else:
+                self.room_number += 1
+                self.message = "Boss defeated. Stage 2 opened."
+                enter_hub(self)
             return
 
         self.open_perk_select_if_needed()

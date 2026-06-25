@@ -55,16 +55,21 @@ def enter_room(game):
     game.room_exit_open = False
 
     if room_type == RoomType.TREASURE:
-        game.rooms.target_kills = 1
-        loot = Enemy(
-            MAP_SIZE // 2,
-            MAP_SIZE // 2 - 170,
-            EnemyType.LOOT,
-            difficulty=1.0 + game.room_number * 0.18,
+        game.rooms.target_kills = 2
+        loot_positions = (
+            (MAP_SIZE // 2 - 120, MAP_SIZE // 2 - 170),
+            (MAP_SIZE // 2 + 120, MAP_SIZE // 2 - 170),
         )
-        game.enemies.append(loot)
-        game.effects.ring(loot.rect.center, radius=120, life=0.7, width=4)
-        game.message = "Treasure room: chase the Loot Beast for 10 seconds."
+        for x, y in loot_positions:
+            loot = Enemy(
+                x,
+                y,
+                EnemyType.LOOT,
+                difficulty=1.0 + game.room_number * 0.18,
+            )
+            game.enemies.append(loot)
+            game.effects.ring(loot.rect.center, radius=120, life=0.7, width=4)
+        game.message = "Treasure room: chase the Loot Beasts for 15 seconds."
         return
 
     game.message = f"{game.rooms.display_name()} Room started."
@@ -86,7 +91,14 @@ def enter_boss(game):
     game.events.emit("state_boss")
     game.events.emit("boss_spawned")
 
-    boss_difficulty = 1.0 + game.room_number * 0.65 + max(0, game.player.level - 1) * 0.28 + game.player.build_power_score() * 0.18
+    boss_stage = 2 if game.room_number > ROOMS_TO_BOSS else 1
+    boss_difficulty = (
+        1.25
+        + game.room_number * 0.68
+        + max(0, game.player.level - 1) * 0.30
+        + game.player.build_power_score() * 0.20
+        + (boss_stage - 1) * 1.35
+    )
     boss = Enemy(
         MAP_SIZE // 2,
         MAP_SIZE // 2 - 220,
@@ -95,6 +107,6 @@ def enter_boss(game):
     )
 
     game.enemies.append(boss)
-    game.message = f"Boss awakened. Threat x{boss_difficulty:.1f}."
+    game.message = f"Boss {boss_stage}/2 awakened. Threat x{boss_difficulty:.1f}."
     game.audio.play("boss")
     game.effects.ring(boss.rect.center, radius=180, life=1.0, width=5)

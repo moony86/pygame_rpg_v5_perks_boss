@@ -19,11 +19,16 @@ THREAT_COSTS = {
 }
 
 ROOM_THREAT_BUDGETS = {
-    1: 20,
-    2: 30,
-    3: 45,
-    4: 60,
-    5: 80,
+    1: 125,
+    2: 260,
+    3: 70,
+    4: 88,
+    5: 110,
+}
+
+COMBAT_WAVE_COUNTS = {
+    1: 5,
+    2: 10,
 }
 
 SURVIVAL_THREAT_BUDGETS = {
@@ -87,7 +92,7 @@ class WaveSystem:
         elif room_type == RoomType.CURSE:
             difficulty *= 1.65
         elif room_type == RoomType.ELITE:
-            difficulty *= 1.35
+            difficulty *= 1.45
         return difficulty
 
     def _build_waves(self, room_number, room_type):
@@ -102,12 +107,12 @@ class WaveSystem:
                 {
                     "count": count,
                     "types": [EnemyType.ELITE],
-                    "difficulty_bonus": 0.35 + index * 0.12,
+                    "difficulty_bonus": 0.45 + index * 0.14,
                     "delay": 0.08,
                     "burst": count,
                     "label": f"ELITE SPLIT {index + 1}",
                 }
-                for index, count in enumerate((1, 1, 2))
+                for index, count in enumerate((1, 2, 4))
             ]
 
         return self._build_budget_waves(room_number, room_type)
@@ -189,7 +194,10 @@ class WaveSystem:
 
     def _build_budget_waves(self, room_number, room_type):
         budget = self._room_threat_budget(room_number, room_type)
-        wave_count = min(5, max(3, (budget + 19) // 20))
+        if room_type == RoomType.COMBAT and room_number in COMBAT_WAVE_COUNTS:
+            wave_count = COMBAT_WAVE_COUNTS[room_number]
+        else:
+            wave_count = min(6, max(3, (budget + 19) // 20))
         base_budget = budget // wave_count
         remainder = budget % wave_count
 
