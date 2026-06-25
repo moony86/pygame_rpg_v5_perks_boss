@@ -1,7 +1,13 @@
 from pathlib import Path
+import sys
 import pygame
 
 from config import CONFIG
+
+
+def resource_path(relative_path):
+    base_path = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+    return base_path / relative_path
 
 
 class AudioSystem:
@@ -10,8 +16,8 @@ class AudioSystem:
         self.sounds = {}
         self.current_music = None
 
-        self.sounds_path = Path("assets/sounds")
-        self.music_path = Path("assets/music")
+        self.sounds_path = resource_path(Path("assets") / "sounds")
+        self.music_path = resource_path(Path("assets") / "music")
 
         try:
             pygame.mixer.init()
@@ -80,7 +86,7 @@ class AudioSystem:
 
         try:
             pygame.mixer.music.load(str(path))
-            pygame.mixer.music.set_volume(CONFIG["music_volume"])
+            pygame.mixer.music.set_volume(CONFIG["master_volume"] * CONFIG["music_volume"])
             pygame.mixer.music.play(loops)
             self.current_music = name
         except Exception as error:

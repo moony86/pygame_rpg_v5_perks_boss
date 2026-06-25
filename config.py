@@ -1,7 +1,7 @@
 CONFIG = {
-    "master_volume": 0.7,
-    "sfx_volume": 0.7,
-    "music_volume": 0.45,
+    "master_volume": 0.5,
+    "sfx_volume": 0.3,
+    "music_volume": 0.2,
     "sfx_enabled": True,
     "music_enabled": True,
     "show_fps": True,

@@ -22,6 +22,12 @@ class InputSystem:
             if event.type == pygame.QUIT:
                 game.quit()
 
+            if event.type == pygame.VIDEORESIZE:
+                game.resize_window(event.size)
+                continue
+
+            event = game.translate_event(event)
+
             if game.state == GameState.PERK_SELECT:
                 handle_perk_select_events(game, event)
                 continue

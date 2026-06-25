@@ -10,11 +10,19 @@ def handle_hub_events (game, event):
 
         if npc:
             if npc.role == "portal":
+                if not getattr(game, "gatekeeper_ready", False):
+                    game.gatekeeper_ready = True
+                    game.dialogue.show("Gatekeeper", "Hero, the dungeon is awake. Press E again when you are ready to enter.")
+                    game.message = "Press E again to start the dungeon."
+                    return
+                game.dialogue.show("Gatekeeper", "Then go. Survive the room and return stronger.")
+                game.gatekeeper_ready = False
                 if game.room_number > ROOMS_TO_BOSS:
                     enter_boss(game)
                 else:
                     enter_room(game)
             else:
+                game.gatekeeper_ready = False
                 game.dialogue.toggle_npc(npc)
         else:
             game.dialogue.close()

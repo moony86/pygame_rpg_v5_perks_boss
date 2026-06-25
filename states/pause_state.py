@@ -23,7 +23,9 @@ def handle_pause_mouse(game, event):
             value = (mouse_pos[0] - rect.x) / rect.width
             value = max(0.0, min(1.0, value))
 
-            if slider_name == "music":
+            if slider_name == "master":
+                CONFIG["master_volume"] = value
+            elif slider_name == "music":
                 CONFIG["music_volume"] = value
             elif slider_name == "sfx":
                 CONFIG["sfx_volume"] = value

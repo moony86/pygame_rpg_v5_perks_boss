@@ -1,6 +1,7 @@
 import pygame
 
 from game_state import GameState
+from systems.scene_system import enter_hub
 
 
 def handle_combat_events(game, event):
@@ -15,3 +16,8 @@ def handle_combat_events(game, event):
                 radius=70,
                 life=0.22,
             )
+    elif event.key == pygame.K_e:
+        if game.state == GameState.ROOM and game.room_exit_open:
+            if game.player.rect.colliderect(game.room_exit_rect):
+                game.room_number += 1
+                enter_hub(game)

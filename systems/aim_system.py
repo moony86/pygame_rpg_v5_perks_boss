@@ -26,9 +26,11 @@ def nearest_enemy(player, enemies, max_range=AIM_ASSIST_RANGE):
     return best
 
 
-def update_player_aim(player, enemies, camera):
+def update_player_aim(player, enemies, camera, mouse_pos=None):
     target = nearest_enemy(player, enemies, AIM_ASSIST_RANGE)
-    mouse_world = camera.screen_to_world(pygame.mouse.get_pos())
+    if mouse_pos is None:
+        mouse_pos = pygame.mouse.get_pos()
+    mouse_world = camera.screen_to_world(mouse_pos)
     aim_target = mouse_world
 
     if target:

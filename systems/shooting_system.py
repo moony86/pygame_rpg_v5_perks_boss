@@ -21,6 +21,14 @@ def rotate_vector(vec, degrees):
     )
 
 
+def crit_stats(player):
+    crit_chance = max(0.0, player.crit_chance)
+    overflow_bonus = max(0.0, crit_chance - 1.0)
+    effective_chance = min(1.0, crit_chance)
+    effective_multiplier = player.crit_multiplier + overflow_bonus
+    return effective_chance, effective_multiplier
+
+
 class ShootingSystem:
     def __init__(self):
         self.shoot_timer = 0.0
@@ -38,6 +46,7 @@ class ShootingSystem:
         base_damage = PROJECTILE_DAMAGE + player.damage_bonus
         speed = PROJECTILE_SPEED + player.projectile_speed_bonus
         count = player.projectile_count
+        crit_chance, crit_multiplier = crit_stats(player)
 
         if count <= 1:
             angles = [0]
@@ -49,8 +58,8 @@ class ShootingSystem:
 
         for angle in angles:
             direction = rotate_vector(player.aim_direction, angle)
-            critical = random.random() < player.crit_chance
-            damage = int(base_damage * (player.crit_multiplier if critical else 1))
+            critical = random.random() < crit_chance
+            damage = int(base_damage * (crit_multiplier if critical else 1))
 
             projectiles.append(
                 Projectile(

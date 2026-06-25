@@ -5,8 +5,10 @@ class CrosshairSystem:
     def __init__(self):
         self.radius = 8
 
-    def draw(self, surface):
-        x, y = pygame.mouse.get_pos()
+    def draw(self, surface, mouse_pos=None):
+        if mouse_pos is None:
+            mouse_pos = pygame.mouse.get_pos()
+        x, y = mouse_pos
 
         # outline
         pygame.draw.circle(

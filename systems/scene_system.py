@@ -17,6 +17,7 @@ def enter_hub(game):
     game.player.heal(game.player.regen_on_room_clear)
     game.camera.reset(game.player.rect)
     game.dialogue.close()
+    game.gatekeeper_ready = False
     game.combat.reset()
     game.enemies.clear()
     game.projectiles.clear()
@@ -48,15 +49,22 @@ def enter_room(game):
 
     room_type = game.rooms.choose_next_room(game.room_number)
     game.spawn.reset(game.room_number, room_type)
+    game.waves.reset(game.room_number, room_type, game.player)
+    if room_type not in (RoomType.TREASURE,):
+        game.rooms.target_kills = sum(wave.get("count", 0) for wave in game.waves.waves)
+    game.room_exit_open = False
 
     if room_type == RoomType.TREASURE:
-        reward = 25 + game.room_number * 8
-        game.player.add_gold(reward)
-        game.message = f"Treasure room: +{reward} gold. Return to hub."
-        game.audio.play("room")
-        game.effects.ring(game.player.rect.center, radius=120, life=0.7)
-        game.room_number += 1
-        enter_hub(game)
+        game.rooms.target_kills = 1
+        loot = Enemy(
+            MAP_SIZE // 2,
+            MAP_SIZE // 2 - 170,
+            EnemyType.LOOT,
+            difficulty=1.0 + game.room_number * 0.18,
+        )
+        game.enemies.append(loot)
+        game.effects.ring(loot.rect.center, radius=120, life=0.7, width=4)
+        game.message = "Treasure room: chase the Loot Beast for 10 seconds."
         return
 
     game.message = f"{game.rooms.display_name()} Room started."
@@ -78,14 +86,15 @@ def enter_boss(game):
     game.events.emit("state_boss")
     game.events.emit("boss_spawned")
 
+    boss_difficulty = 1.0 + game.room_number * 0.65 + max(0, game.player.level - 1) * 0.28 + game.player.build_power_score() * 0.18
     boss = Enemy(
         MAP_SIZE // 2,
-        MAP_SIZE // 2 - 360,
+        MAP_SIZE // 2 - 220,
         EnemyType.BOSS,
-        difficulty=1.0,
+        difficulty=boss_difficulty,
     )
 
     game.enemies.append(boss)
-    game.message = "Boss awakened. Phase attacks have warnings."
+    game.message = f"Boss awakened. Threat x{boss_difficulty:.1f}."
     game.audio.play("boss")
     game.effects.ring(boss.rect.center, radius=180, life=1.0, width=5)
