@@ -1,3 +1,9 @@
+"""Legacy UI helper module.
+
+Active UI modules import shared helpers from ui.common. This module is retained
+temporarily as a removal candidate and should not receive new UI code.
+"""
+
 import pygame
 from settings import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, BLACK, DARK_GRAY, RED, GREEN, YELLOW, GOLD, CYAN, ROOMS_TO_BOSS
 from systems.upgrade_system import UPGRADES

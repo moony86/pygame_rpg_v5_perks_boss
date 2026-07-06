@@ -1,0 +1,383 @@
+هذا السؤال هو بالضبط ما يميز مرحلة "البرمجة" عن مرحلة "تصميم اللعبة".
+
+أنت الآن تقول:
+
+> **كيف أبدأ؟**
+
+والجواب هو:
+
+**لا تبدأ بالكود... ولا حتى بالكروت.**
+
+ابدأ بسؤال واحد.
+
+---
+
+# السؤال الأساسي
+
+> **"من هو اللاعب الذي أريد أن يصبحه الشخص في نهاية الجولة؟"**
+
+وليس:
+
+> "ما هي البطاقات التي سأضيفها؟"
+
+الفرق بسيط لكنه يغيّر كل شيء.
+
+---
+
+## مثال
+
+لو قلت:
+
+> أريد إضافة بطاقة جديدة:
+
+```text
++15% Fire Rate
+```
+
+هذا تفكير بالمزايا.
+
+أما لو قلت:
+
+> أريد أن أجعل اللاعب يشعر أنه "نينجا".
+
+هنا تبدأ تسأل:
+
+* كيف يتحرك النينجا؟
+* كيف يهاجم؟
+* ما نقاط قوته؟
+* ما نقاط ضعفه؟
+* ما نوع القرارات التي يتخذها؟
+
+ثم تأتي البطاقات لخدمة هذه الفكرة.
+
+---
+
+# ما هو الـ Design Bible؟
+
+تخيل أنك بعد سنة رجعت للمشروع، أو جاء شخص آخر يساعدك.
+
+بدل أن تقول له:
+
+> "أعتقد عندنا بطاقة اسمها Crit..."
+
+تعطيه هذا الملف.
+
+---
+
+## الصفحة الأولى
+
+```text
+BlueCube Design Bible
+
+Vision
+
+BlueCube is a replayable action roguelite where
+every run allows the player to gradually become
+a completely different combat specialist.
+
+The goal is not to collect upgrades.
+
+The goal is to discover and build a unique combat identity.
+```
+
+هذا ليس للمبرمج.
+
+هذا لك أنت.
+
+كلما جاءت فكرة جديدة، ترجع لهذه الصفحة وتسأل:
+
+> هل هذه الفكرة تخدم رؤية اللعبة؟
+
+---
+
+## الصفحة الثانية
+
+```text
+Core Design Rules
+```
+
+مثلاً:
+
+1.
+
+```text
+No build should be mandatory.
+```
+
+لا يوجد Build يجب أن يكون الأفضل دائمًا.
+
+---
+
+2.
+
+```text
+Every build must have
+a strength
+and
+a weakness.
+```
+
+---
+
+3.
+
+```text
+Every run should feel different.
+```
+
+---
+
+4.
+
+```text
+The player should be guided,
+never forced.
+```
+
+وهذه جاءت من نقاشنا قبل قليل.
+
+---
+
+# ثم نبدأ الفصل الأول
+
+بدل الكروت...
+
+نكتب الـBuilds.
+
+مثلاً
+
+---
+
+## Sniper
+
+```text
+Fantasy
+
+One perfect shot changes the battle.
+```
+
+---
+
+Strengths
+
+```text
+Very high damage
+
+Long range
+
+Piercing
+
+Precision
+```
+
+---
+
+Weaknesses
+
+```text
+Slow fire rate
+
+Weak if surrounded
+
+Needs accuracy
+```
+
+---
+
+Tags
+
+```text
+damage
+
+crit
+
+precision
+
+piercing
+```
+
+---
+
+Recommended cards
+
+```text
+Damage
+
+Crit
+
+Piercing
+
+Critical Damage
+
+Range
+```
+
+---
+
+Legendary ideas
+
+```text
+Dead Eye
+
+Every critical shot chains
+to another enemy.
+```
+
+لاحظ...
+
+لم نكتب كودًا واحدًا.
+
+---
+
+ثم
+
+## Ninja
+
+نفس الشيء.
+
+---
+
+Engineer
+
+---
+
+Lucky
+
+---
+
+Vampire
+
+---
+
+وهكذا.
+
+---
+
+# بعد أن ننتهي
+
+نبدأ نربط الكروت.
+
+مثلاً
+
+بطاقة:
+
+```text
+Critical Chance
+```
+
+تحتها:
+
+```text
+Tags
+
+crit
+
+precision
+```
+
+إذن...
+
+تخدم:
+
+```text
+Sniper
+```
+
+وأيضًا:
+
+```text
+Assassin
+```
+
+وليس Sniper فقط.
+
+---
+
+# متى أضيف فكرة جديدة؟
+
+هنا نرجع لسؤالك.
+
+مثلاً...
+
+بعد شهر.
+
+قلت:
+
+> أبغى بطاقة Lightning.
+
+الطريقة القديمة:
+
+```
+فكرة جميلة.
+
+أضفها.
+```
+
+❌
+
+---
+
+الطريقة الجديدة:
+
+أفتح Design Bible.
+
+أسأل:
+
+## هذه البطاقة...
+
+تخدم أي Build؟
+
+إذا الجواب:
+
+> ولا واحد.
+
+لا تضفها.
+
+---
+
+إذا الجواب:
+
+> Engineer.
+
+أسأل:
+
+هل Engineer يحتاجها؟
+
+إذا نعم...
+
+أضفها.
+
+إذا لا...
+
+لا تضفها.
+
+---
+
+# لذلك قلت هذه القاعدة
+
+> لا تضف أي ميزة قبل أن تدخل الـDesign Bible.
+
+ليس لأننا نحب الورق.
+
+بل لأن الـDesign Bible يصبح **فلترًا للأفكار**.
+
+بدل أن تضيف 200 فكرة لأن كل واحدة تبدو رائعة، تضيف فقط الأفكار التي تخدم هوية اللعبة.
+
+---
+
+# وأقترح أن يكون أول هدف لنا ليس كتابة 100 صفحة.
+
+بل كتابة **10 صفحات فقط**:
+
+1. Vision (رؤية اللعبة)
+2. Core Philosophy (قواعد التصميم)
+3. Gameplay Loop (دورة اللعب)
+4. Player Builds (هوية كل Build)
+5. Card Tags (تصنيف البطاقات)
+6. Synergy Rules (قواعد التآزر)
+7. Legendary Rules (قواعد البطاقات الخارقة)
+8. Economy (الذهب وXP والمتجر)
+9. Progression (كيف يتطور اللاعب خلال الجولة)
+10. Future Ideas (موقف للأفكار الجديدة قبل تحويلها إلى كود)
+
+بعد هذه العشر صفحات، ستلاحظ شيئًا مهمًا: عندما تخطر لك فكرة جديدة، لن تسأل "هل هي فكرة جميلة؟"، بل ستسأل "هل لها مكان طبيعي داخل هذا الدستور؟". وهذه هي النقلة التي تمنع المشروع من التحول إلى مجموعة ميزات غير مترابطة.

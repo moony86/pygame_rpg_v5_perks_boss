@@ -1,3 +1,7 @@
+import random
+
+import pygame
+
 from settings import (
     ENEMY_DAMAGE,
     ENEMY_CONTACT_COOLDOWN,
@@ -7,12 +11,16 @@ from settings import (
     BOSS_XP_REWARD,
     BOSS_GOLD_REWARD,
     BOSS_DAMAGE,
+    PROJECTILE_KNOCKBACK_COOLDOWN,
 )
 from entities.enemy import Enemy, EnemyType
+from entities.projectile import Projectile
+from systems.room_bounds import current_room_rect
 
 LOOT_HIT_GOLD_REWARD = 35
 LOOT_HIT_XP_REWARD = 12
 LOOT_ESCAPE_KILL_BONUS_MULTIPLIER = 4
+PROJECTILE_ENEMY_HURTBOX_INFLATE = 10
 
 
 class CombatSystem:
@@ -22,21 +30,69 @@ class CombatSystem:
     def reset(self):
         self.player_contact_timer = 0.0
 
-    def update(self, dt, player, projectiles, enemies, enemy_bullets, effects=None, audio=None, reward_multiplier=1):
+    def pressure_boss_after_long_range_hit(self, boss, player):
+        if boss.type != EnemyType.BOSS or getattr(boss, "anti_kite_timer", 0) > 0:
+            return
+
+        boss_pos = pygame.Vector2(boss.rect.center)
+        player_pos = pygame.Vector2(player.rect.center)
+        distance = boss_pos.distance_to(player_pos)
+        if distance < 520:
+            return
+
+        direction = player_pos - boss_pos
+        if direction.length_squared() == 0:
+            direction = pygame.Vector2(1, 0)
+        if distance > 620:
+            boss.windup_timer = 0.0
+            boss.windup_action = None
+        boss.leap_velocity = direction.normalize() * (560 + boss.phase * 130 + boss.difficulty * 18)
+        boss.leap_timer = 0.16 + boss.phase * 0.02
+        boss.attack_cooldown = min(getattr(boss, "attack_cooldown", 0.0), 0.38)
+        boss.anti_kite_timer = 0.62
+
+    def update(self, dt, player, projectiles, enemies, enemy_bullets, effects=None, audio=None, reward_multiplier=1, enemy_factory=None, loot_system=None, feel=None, spatial_grid=None):
         if self.player_contact_timer > 0:
             self.player_contact_timer = max(0, self.player_contact_timer - dt)
 
         kills = 0
         boss_killed = False
+        kill_rewarded_ids = set()
+
+        direct_kills = []
+        direct_kills.extend(self._update_dash_strike(player, projectiles, enemies, effects, audio))
+        direct_kills.extend(self._update_vampire_trail(dt, player, enemies, effects, audio))
+        direct_kills.extend(self._update_engineer_blades(dt, player, enemies, effects, audio, spatial_grid=spatial_grid))
+        direct_kills.extend(self._update_engineer_bomber(dt, player, enemies, effects, audio))
+        direct_kills.extend(self._update_engineer_airstrike(dt, player, enemies, effects, audio))
+        direct_kills.extend(self._update_blood_bat(dt, player, enemies, effects, audio))
+        self._update_vampire_wounds(dt, enemies)
+        self._update_blood_orbs(dt, player, effects)
+        self._update_engineer_helper_projectile(dt, player, projectiles, enemies, effects, audio)
+        for enemy in direct_kills:
+            if id(enemy) in kill_rewarded_ids:
+                continue
+            kill_rewarded_ids.add(id(enemy))
+            kills += 1
+            if enemy.type == EnemyType.BOSS:
+                boss_killed = True
+            self._reward_enemy_kill(player, enemy, enemy_bullets, reward_multiplier, loot_system, feel, effects)
 
         for projectile in projectiles:
             if not projectile.alive:
                 continue
-            for enemy in enemies:
+            candidates = spatial_grid.nearby_rect(projectile.rect, padding=96) if spatial_grid is not None else enemies
+            for enemy in candidates:
                 if not enemy.alive or not projectile.can_hit(enemy):
                     continue
-                if projectile.rect.colliderect(enemy.rect):
+                hit_rect = enemy.rect.inflate(PROJECTILE_ENEMY_HURTBOX_INFLATE, PROJECTILE_ENEMY_HURTBOX_INFLATE)
+                if projectile.rect.colliderect(hit_rect):
                     if enemy.type == EnemyType.BOSS and enemy.phase == 1:
+                        if feel:
+                            feel.normal_hit()
+                        self.pressure_boss_after_long_range_hit(enemy, player)
+                        self._apply_sanguine_wound(player, enemy, effects)
+                        self._apply_vampire_hit_feed(player, enemy, effects)
                         enemy.shield -= projectile.damage
                         enemy.hit_flash = 0.08
 
@@ -52,6 +108,8 @@ class CombatSystem:
                         if enemy.shield <=0:
                             enemy.shield = 0
                             enemy.phase = 2
+                            if feel:
+                                feel.boss_phase()
 
                             if effects:
                                 effects.ring(enemy.rect.center, radius=150, life=0.65, width=5)
@@ -63,6 +121,12 @@ class CombatSystem:
                         break
 
                     killed = enemy.take_damage(projectile.damage)
+                    self._apply_sanguine_wound(player, enemy, effects)
+                    self._apply_vampire_hit_feed(player, enemy, effects)
+                    if feel:
+                        feel.normal_hit()
+                    if enemy.type == EnemyType.BOSS:
+                        self.pressure_boss_after_long_range_hit(enemy, player)
                     if (
                         enemy.type == EnemyType.BOSS
                         and not killed
@@ -70,13 +134,23 @@ class CombatSystem:
                         and enemy.health <= enemy.max_health * 0.5
                     ):
                         enemy.half_health_elite_spawned = True
-                        elite = Enemy(enemy.rect.centerx + 120, enemy.rect.centery + 80, EnemyType.ELITE, difficulty=max(1.0, enemy.difficulty * 0.72))
+                        elite_difficulty = max(1.0, enemy.difficulty * 0.72)
+                        if enemy_factory is not None:
+                            elite = enemy_factory(enemy.rect.centerx + 120, enemy.rect.centery + 80, EnemyType.ELITE, elite_difficulty)
+                        else:
+                            elite = Enemy(enemy.rect.centerx + 120, enemy.rect.centery + 80, EnemyType.ELITE, difficulty=elite_difficulty)
                         enemies.append(elite)
                         if effects:
                             effects.ring(elite.rect.center, radius=110, life=0.65, width=5)
                             effects.message("ELITE GUARD SPAWNED", elite.rect.midtop)
                         if audio:
                             audio.play("boss_phase")
+                    if getattr(projectile, "knockback", 0) > 0 and getattr(enemy, "knockback_timer", 0) <= 0 and enemy.type != EnemyType.BOSS:
+                        push = projectile.direction * projectile.knockback
+                        enemy.rect.x += round(push.x)
+                        enemy.rect.y += round(push.y)
+                        enemy.rect.clamp_ip(current_room_rect())
+                        enemy.knockback_timer = PROJECTILE_KNOCKBACK_COOLDOWN
                     if enemy.type == EnemyType.LOOT:
                         player.add_gold(LOOT_HIT_GOLD_REWARD)
                         player.add_xp(LOOT_HIT_XP_REWARD)
@@ -84,45 +158,34 @@ class CombatSystem:
                             effects.message(f"+{LOOT_HIT_GOLD_REWARD}g +{LOOT_HIT_XP_REWARD}xp", enemy.rect.midtop)
                     if effects:
                         effects.damage_number(projectile.damage, enemy.rect.midtop, critical=projectile.critical)
-                        effects.ring(enemy.rect.center, radius=26, life=0.16, width=2)
+                        effects.ring(enemy.rect.center, radius=38 if getattr(projectile, "explosive", False) else 26, life=0.18, width=3 if getattr(projectile, "explosive", False) else 2)
+                    if getattr(projectile, "explosive", False):
+                        explosion_radius = getattr(projectile, "explosion_radius", 95)
+                        splash_ratio = getattr(projectile, "explosion_splash_ratio", 1 / 3)
+                        splash_damage = max(1, int(projectile.damage * splash_ratio))
+                        for splash_enemy in enemies:
+                            if splash_enemy is enemy or not splash_enemy.alive or splash_enemy.type == EnemyType.BOSS:
+                                continue
+                            dx = splash_enemy.rect.centerx - enemy.rect.centerx
+                            dy = splash_enemy.rect.centery - enemy.rect.centery
+                            if dx * dx + dy * dy <= explosion_radius * explosion_radius:
+                                splash_enemy.take_damage(splash_damage)
                     if audio:
                         audio.play("hit")
                     projectile.register_hit(enemy)
 
-                    if killed:
-                        owner_id = id(enemy)
-                        for bullet in enemy_bullets:
-                            if getattr(bullet, "owner_id", None) == owner_id:
-                                bullet.kill()
-                        if audio:
-                            audio.play("death")
-                        if effects:
-                            effects.ring(enemy.rect.center, radius=62, life=0.30, width=4)
+                    if killed and id(enemy) not in kill_rewarded_ids:
+                        kill_rewarded_ids.add(id(enemy))
                         kills += 1
-                        if enemy.type == EnemyType.BOSS:
-                            boss_killed = True
-                            player.add_xp(BOSS_XP_REWARD)
-                            player.add_gold(BOSS_GOLD_REWARD)
-                        elif enemy.type == EnemyType.LOOT:
-                            bonus_gold = LOOT_HIT_GOLD_REWARD * LOOT_ESCAPE_KILL_BONUS_MULTIPLIER
-                            bonus_xp = LOOT_HIT_XP_REWARD * LOOT_ESCAPE_KILL_BONUS_MULTIPLIER
-                            player.add_xp(bonus_xp)
-                            player.add_gold(bonus_gold)
-                            if effects:
-                                effects.message(f"LOOT BONUS +{bonus_gold}g +{bonus_xp}xp", enemy.rect.midtop)
-                        else:
-                            xp = ENEMY_XP_REWARD * reward_multiplier
-                            gold = ENEMY_GOLD_REWARD * reward_multiplier
-                            if enemy.type == EnemyType.ELITE:
-                                xp *= 5
-                                gold *= 6
-                            player.add_xp(xp)
-                            player.add_gold(gold)
+                        boss_killed = enemy.type == EnemyType.BOSS
+                        self._reward_enemy_kill(player, enemy, enemy_bullets, reward_multiplier, loot_system, feel, effects, audio)
                     break
 
         for bullet in enemy_bullets:
-            if bullet.alive and bullet.rect.colliderect(player.rect):
+            if bullet.alive and getattr(bullet, "can_damage", True) and bullet.rect.colliderect(player.rect):
                 if player.take_damage(bullet.damage):
+                    if feel:
+                        feel.player_hit()
                     bullet.kill()
                     if effects:
                         effects.ring(player.rect.center, radius=45, life=0.22, width=3)
@@ -140,6 +203,8 @@ class CombatSystem:
                         damage = ENEMY_DAMAGE
                     damage = int(damage * getattr(enemy, "damage_multiplier", 1.0))
                     if player.take_damage(damage):
+                        if feel:
+                            feel.player_hit()
                         self.player_contact_timer = ENEMY_CONTACT_COOLDOWN
                         if effects:
                             effects.ring(player.rect.center, radius=45, life=0.22, width=3)
@@ -148,3 +213,682 @@ class CombatSystem:
                     break
 
         return kills, boss_killed
+
+    def _update_dash_strike(self, player, projectiles, enemies, effects=None, audio=None):
+        killed_enemies = []
+        damage = getattr(player, "dash_strike_damage", 0)
+        if damage <= 0 or getattr(player, "dash_timer", 0) <= 0:
+            return killed_enemies
+        hit_ids = getattr(player, "dash_strike_hit_ids", set())
+        restore = getattr(player, "dash_strike_cooldown_restore", 0.0)
+        for enemy in enemies:
+            if not enemy.alive or id(enemy) in hit_ids or getattr(enemy, "type", None) == EnemyType.BOSS:
+                continue
+            if not player.rect.inflate(18, 18).colliderect(enemy.rect):
+                continue
+            hit_ids.add(id(enemy))
+            momentum = getattr(player, "ninja_momentum", 0.0)
+            total_damage = damage + int(damage * 0.55 * momentum)
+            killed = enemy.take_damage(total_damage)
+            player.grant_dash_refund(restore + 0.20 * momentum)
+            self._spawn_ninja_shuriken(player, projectiles, enemy)
+            if effects:
+                effects.damage_number(total_damage, enemy.rect.midtop, critical=False)
+                effects.ring(enemy.rect.center, radius=44, life=0.18, width=3)
+            if audio:
+                audio.play("hit")
+            if killed:
+                killed_enemies.append(enemy)
+        return killed_enemies
+
+    def _update_vampire_wounds(self, dt, enemies):
+        for enemy in enemies:
+            timer = getattr(enemy, "vampire_wound_timer", 0.0)
+            if timer <= 0:
+                continue
+            timer = max(0.0, timer - dt)
+            enemy.vampire_wound_timer = timer
+            if timer <= 0:
+                enemy.vampire_wound_stacks = 0
+
+    def _apply_sanguine_wound(self, player, enemy, effects=None):
+        stacks_per_hit = getattr(player, "vampire_wound_stacks_per_hit", 0)
+        max_stacks = getattr(player, "vampire_wound_max_stacks", 0)
+        if stacks_per_hit <= 0 or max_stacks <= 0 or not getattr(enemy, "alive", False):
+            return
+        current = getattr(enemy, "vampire_wound_stacks", 0)
+        enemy.vampire_wound_stacks = min(max_stacks, current + stacks_per_hit)
+        enemy.vampire_wound_timer = getattr(player, "vampire_wound_duration", 5.0)
+        if effects:
+            effects.ring(enemy.rect.center, color=(210, 30, 70), radius=18 + 5 * enemy.vampire_wound_stacks, life=0.14, width=2)
+
+    def _update_blood_orbs(self, dt, player, effects=None):
+        orbs = getattr(player, "vampire_blood_orbs", [])
+        if not orbs:
+            return
+        center = pygame.Vector2(player.rect.center)
+        attract_radius = player.vampire_orb_attraction_radius() if hasattr(player, "vampire_orb_attraction_radius") else getattr(player, "vampire_orb_attract_radius", 96)
+        collect_radius = max(32, min(64, int(attract_radius * 0.30)))
+        kept = []
+        for orb in orbs:
+            orb["life"] -= dt
+            if orb["life"] <= 0:
+                continue
+            direction = center - orb["pos"]
+            distance = direction.length()
+            if distance <= collect_radius:
+                gained = player.add_blood(orb["value"], source="orb")
+                heal = getattr(player, "vampire_orb_heal", 0)
+                if heal > 0 and gained > 0:
+                    player.heal(heal + (1 if getattr(player, "vampire_feast_timer", 0) > 0 else 0))
+                if effects and gained:
+                    effects.message(f"BLOOD ORB +{gained}", player.rect.midtop)
+                continue
+            if distance <= attract_radius and distance > 0:
+                orb["vel"] += direction.normalize() * (520 + attract_radius * 1.5) * dt
+            orb["vel"] *= max(0.0, 1.0 - 2.8 * dt)
+            orb["pos"] += orb["vel"] * dt
+            kept.append(orb)
+        player.vampire_blood_orbs = kept
+
+    def _spawn_blood_orb(self, player, enemy, value=None, effects=None):
+        if getattr(player, "vampire_orb_drop_chance", 0.0) <= 0:
+            return False
+        if len(getattr(player, "vampire_blood_orbs", [])) >= getattr(player, "vampire_orb_cap", 16):
+            return False
+        if random.random() > getattr(player, "vampire_orb_drop_chance", 0.0):
+            return False
+        amount = value if value is not None else getattr(player, "vampire_orb_value", 1)
+        if amount <= 0:
+            return False
+        angle = random.uniform(0, 360)
+        player.vampire_blood_orbs.append({
+            "pos": pygame.Vector2(enemy.rect.center),
+            "vel": pygame.Vector2(1, 0).rotate(angle) * random.uniform(90, 150),
+            "value": int(amount),
+            "life": 8.0,
+        })
+        if effects:
+            effects.ring(enemy.rect.center, color=(230, 35, 75), radius=34, life=0.24, width=3)
+        return True
+
+    def _update_blood_bat(self, dt, player, enemies, effects=None, audio=None):
+        killed_enemies = []
+        if not getattr(player, "vampire_bat_enabled", False):
+            player.vampire_bat_state = "inactive"
+            player.vampire_bat_pos.update(player.rect.center)
+            return killed_enemies
+
+        state = getattr(player, "vampire_bat_state", "inactive")
+        if state == "inactive":
+            player.vampire_bat_state = "ready"
+            player.vampire_bat_pos.update(player.rect.center)
+            player.vampire_bat_chain_kills = 0
+            return killed_enemies
+        if state == "cooldown":
+            player.vampire_bat_timer = max(0.0, player.vampire_bat_timer - dt)
+            rest = pygame.Vector2(player.rect.center) + pygame.Vector2(36, -48)
+            player.vampire_bat_pos += (rest - player.vampire_bat_pos) * min(1.0, dt * 7.0)
+            if player.vampire_bat_timer <= 0:
+                player.vampire_bat_state = "ready"
+            return killed_enemies
+        if state == "ready":
+            player.vampire_bat_search_timer = max(0.0, getattr(player, "vampire_bat_search_timer", 0.0) - dt)
+            if player.vampire_bat_search_timer > 0:
+                return killed_enemies
+            player.vampire_bat_search_timer = 0.05
+            target = self._acquire_bat_target(player, enemies)
+            if target is None:
+                return killed_enemies
+            player.vampire_bat_target_id = id(target)
+            player.vampire_bat_target_pos.update(target.rect.center)
+            player.vampire_bat_state = "diving"
+            return killed_enemies
+        if state == "returning":
+            if self._move_bat_toward(player, pygame.Vector2(player.rect.center), dt) <= 24:
+                if player.vampire_bat_carried_blood > 0:
+                    gained = player.add_blood(player.vampire_bat_carried_blood, source="bat")
+                    if effects and gained:
+                        effects.message(f"BAT +{gained}", player.rect.midtop)
+                player.vampire_bat_carried_blood = 0
+                player.vampire_bat_chain_kills = 0
+                player.vampire_bat_state = "cooldown"
+                cooldown = player.vampire_bat_rest_cooldown() if hasattr(player, "vampire_bat_rest_cooldown") else getattr(player, "vampire_bat_cooldown", 3.0)
+                player.vampire_bat_timer = cooldown
+            return killed_enemies
+        if state == "feeding":
+            player.vampire_bat_timer = max(0.0, player.vampire_bat_timer - dt)
+            if player.vampire_bat_timer <= 0:
+                cap = max(1, getattr(player, "vampire_bat_chain_cap", 1))
+                if getattr(player, "vampire_bat_chain_kills", 0) >= cap:
+                    player.vampire_bat_state = "returning"
+                    return killed_enemies
+                target = self._acquire_bat_target(player, enemies)
+                if target is None:
+                    player.vampire_bat_state = "returning"
+                    return killed_enemies
+                player.vampire_bat_target_id = id(target)
+                player.vampire_bat_target_pos.update(target.rect.center)
+                player.vampire_bat_state = "diving"
+            return killed_enemies
+        if state != "diving":
+            return killed_enemies
+
+        target = next((enemy for enemy in enemies if enemy.alive and id(enemy) == player.vampire_bat_target_id), None)
+        if target is None:
+            player.vampire_bat_state = "returning"
+            return killed_enemies
+        player.vampire_bat_target_pos.update(target.rect.center)
+        if self._move_bat_toward(player, pygame.Vector2(target.rect.center), dt) > 22:
+            return killed_enemies
+        damage = max(1, int(getattr(player, "vampire_bat_damage", 1)))
+        if getattr(player, "vampire_blood_moon_timer", 0) > 0:
+            damage = int(damage * 1.25)
+        killed = target.take_damage(damage)
+        player.vampire_bat_carried_blood = min(4, player.vampire_bat_carried_blood + getattr(player, "vampire_bat_feed_value", 1))
+        if effects:
+            effects.damage_number(damage, target.rect.midtop, critical=False)
+            effects.ring(target.rect.center, color=(230, 40, 80), radius=36, life=0.18, width=3)
+        if audio:
+            audio.play("hit")
+        if killed:
+            killed_enemies.append(target)
+            player.vampire_bat_chain_kills = getattr(player, "vampire_bat_chain_kills", 0) + 1
+        player.vampire_bat_state = "feeding"
+        player.vampire_bat_timer = 0.08
+        return killed_enemies
+
+    def _acquire_bat_target(self, player, enemies):
+        player_center = pygame.Vector2(player.rect.center)
+        candidates = [
+            enemy for enemy in enemies
+            if enemy.alive
+            and getattr(enemy, "vampire_wound_stacks", 0) > 0
+            and player_center.distance_squared_to(enemy.rect.center) <= 700 * 700
+        ]
+        if not candidates:
+            return None
+
+        def score(enemy):
+            stacks = getattr(enemy, "vampire_wound_stacks", 0)
+            missing = 1.0 - max(0.0, enemy.health / max(1, enemy.max_health))
+            distance = player_center.distance_to(enemy.rect.center)
+            boss_bonus = 0.3 if getattr(enemy, "type", None) == EnemyType.BOSS else 0.0
+            return (stacks + missing + boss_bonus, -distance)
+
+        return max(candidates, key=score)
+
+    def _move_bat_toward(self, player, target_pos, dt):
+        direction = target_pos - player.vampire_bat_pos
+        distance = direction.length()
+        if distance > 0:
+            speed = getattr(player, "vampire_bat_speed", 420)
+            player.vampire_bat_pos += direction.normalize() * min(distance, speed * dt)
+        return player.vampire_bat_pos.distance_to(target_pos)
+
+    def _update_vampire_trail(self, dt, player, enemies, effects=None, audio=None):
+        killed_enemies = []
+        if not getattr(player, "vampire_trail_enabled", False):
+            return killed_enemies
+        player.vampire_trail_timer = max(0.0, getattr(player, "vampire_trail_timer", 0.0) - dt)
+        moving = getattr(player, "move_direction", pygame.Vector2()).length_squared() > 0.01
+        if not moving:
+            return killed_enemies
+        timer = max(0.0, getattr(player, "vampire_trail_timer", 0.0))
+        if timer > 0:
+            player.vampire_trail_timer = max(0.0, timer)
+            return killed_enemies
+        cap = getattr(player, "vampire_trail_harvest_cap", 0)
+        if getattr(player, "vampire_blood_moon_timer", 0) > 0:
+            cap += 1
+        if cap <= 0:
+            return killed_enemies
+        player.vampire_trail_hit_ids.clear()
+        player.vampire_trail_harvested_this_dash = 0
+        hit_ids = getattr(player, "vampire_trail_hit_ids", set())
+        radius = max(0, int(getattr(player, "vampire_trail_radius", 72)))
+        harvest_rect = player.rect.inflate(radius, radius)
+        for enemy in enemies:
+            if not enemy.alive or id(enemy) in hit_ids or getattr(enemy, "vampire_wound_stacks", 0) <= 0:
+                continue
+            if not harvest_rect.colliderect(enemy.rect):
+                continue
+            hit_ids.add(id(enemy))
+            player.vampire_trail_harvested_this_dash += 1
+            enemy.vampire_wound_stacks = max(0, getattr(enemy, "vampire_wound_stacks", 0) - 1)
+            gained = player.add_blood(getattr(player, "vampire_trail_harvest_value", 1), source="trail")
+            damage = 8 + 4 * getattr(player, "vampire_trail_level", 1)
+            killed = enemy.take_damage(damage)
+            if effects:
+                effects.damage_number(damage, enemy.rect.midtop, critical=False)
+                effects.ring(enemy.rect.center, color=(255, 45, 90), radius=46, life=0.18, width=3)
+                if gained:
+                    effects.message(f"TRAIL +{gained}", enemy.rect.midtop)
+            if audio:
+                audio.play("hit")
+            if killed:
+                killed_enemies.append(enemy)
+            if player.vampire_trail_harvested_this_dash >= cap:
+                break
+        if player.vampire_trail_harvested_this_dash > 0:
+            interval = getattr(player, "vampire_trail_interval", 0.75)
+            if getattr(player, "vampire_blood_moon_timer", 0) > 0:
+                interval *= 0.75
+            player.vampire_trail_timer = max(0.10, interval)
+        return killed_enemies
+
+    def _update_engineer_helper_projectile(self, dt, player, projectiles, enemies, effects=None, audio=None):
+        if not getattr(player, "engineer_helper_enabled", False):
+            return None
+        if getattr(player, "engineer_helper_timer", 0.0) > 0:
+            return None
+        living = [
+            enemy for enemy in enemies
+            if enemy.alive and getattr(enemy, "type", None) != EnemyType.BOSS
+        ]
+        if not living:
+            player.engineer_drone_target_id = None
+            return None
+        player_center = pygame.Vector2(player.rect.center)
+        gun_range = getattr(player, "engineer_gun_range", 500)
+        in_range = [
+            enemy for enemy in living
+            if pygame.Vector2(enemy.rect.center).distance_squared_to(player_center) <= gun_range * gun_range
+        ]
+        if not in_range:
+            player.engineer_drone_target_id = None
+            return None
+        in_range.sort(key=lambda enemy: pygame.Vector2(enemy.rect.center).distance_squared_to(player_center))
+        damage = max(1, int(getattr(player, "engineer_helper_damage", 1)))
+        origins = list(getattr(player, "engineer_drone_positions", [])) or [pygame.Vector2(getattr(player, "engineer_drone_pos", player.rect.center))]
+        drone_count = max(1, min(getattr(player, "engineer_gun_count", 1), len(origins)))
+        burst_count = max(1, getattr(player, "engineer_gun_burst_count", 1))
+        fired = 0
+        target_ids = []
+        for drone_index, origin in enumerate(origins[:drone_count]):
+            target = in_range[min(drone_index, len(in_range) - 1)]
+            target_ids.append(id(target))
+            for burst_index in range(burst_count):
+                direction = pygame.Vector2(target.rect.center) - origin
+                if direction.length_squared() == 0:
+                    direction = pygame.Vector2(1, 0)
+                if burst_count > 1:
+                    direction = direction.rotate((burst_index - (burst_count - 1) / 2) * 4)
+                projectiles.append(
+                    Projectile(
+                        origin.x,
+                        origin.y,
+                        direction,
+                        damage,
+                        speed=getattr(player, "engineer_helper_projectile_speed", 720),
+                        pierce=0,
+                        critical=False,
+                        knockback=10 * getattr(player, "knockback_power", 1.0),
+                        source="engineer_drone",
+                    )
+                )
+                fired += 1
+        if fired <= 0:
+            return None
+        player.engineer_helper_timer = max(0.34, getattr(player, "engineer_helper_cooldown", 1.65))
+        player.engineer_drone_target_id = target_ids[0] if target_ids else None
+        player.engineer_drone_attack_flash = 0.18
+        if effects:
+            for origin in origins[:drone_count]:
+                effects.ring(origin, radius=28, life=0.14, width=2)
+            effects.ring(player.rect.center, radius=26, life=0.14, width=2)
+        if audio:
+            audio.play("shoot")
+        return in_range[0]
+
+    def _update_engineer_airstrike(self, dt, player, enemies, effects=None, audio=None):
+        killed_enemies = []
+        if not getattr(player, "engineer_airstrike_unlocked", False):
+            player.engineer_airstrike_state = "inactive"
+            return killed_enemies
+        if getattr(player, "engineer_airstrike_cooldown_timer", 0.0) > 0:
+            return killed_enemies
+
+        state = getattr(player, "engineer_airstrike_state", "inactive")
+        if state == "cooldown":
+            player.engineer_airstrike_state = "ready"
+            state = "ready"
+        if state in ("inactive", "ready"):
+            target = self._acquire_airstrike_target(player, enemies)
+            if target is None:
+                player.engineer_airstrike_state = "ready"
+                return killed_enemies
+            player.engineer_airstrike_target_pos.update(target)
+            player.engineer_airstrike_state = "telegraph"
+            player.engineer_airstrike_timer = 0.85
+            if effects:
+                effects.ring(target, color=(255, 70, 45), radius=getattr(player, "engineer_airstrike_radius", 160), life=0.85, width=4)
+                effects.message("AIRSTRIKE", target)
+            return killed_enemies
+
+        if state != "telegraph":
+            return killed_enemies
+
+        player.engineer_airstrike_timer = max(0.0, player.engineer_airstrike_timer - dt)
+        if player.engineer_airstrike_timer > 0:
+            return killed_enemies
+
+        center = pygame.Vector2(player.engineer_airstrike_target_pos)
+        radius = getattr(player, "engineer_airstrike_radius", 160)
+        damage = getattr(player, "engineer_airstrike_damage", 110)
+        if effects:
+            effects.ring(center, color=(255, 80, 45), radius=radius, life=0.42, width=6)
+            effects.message("SIEGE HIT", center)
+        if audio:
+            audio.play("hit")
+        for enemy in list(enemies):
+            if not enemy.alive or getattr(enemy, "type", None) == EnemyType.BOSS:
+                continue
+            if center.distance_squared_to(enemy.rect.center) > radius * radius:
+                continue
+            killed = enemy.take_damage(damage)
+            if effects:
+                effects.damage_number(damage, enemy.rect.midtop, critical=False)
+            if killed:
+                killed_enemies.append(enemy)
+        player.engineer_airstrike_state = "cooldown"
+        player.engineer_airstrike_cooldown_timer = getattr(player, "engineer_airstrike_cooldown", 28.0)
+        return killed_enemies
+
+    def _acquire_airstrike_target(self, player, enemies):
+        candidates = [
+            enemy for enemy in enemies
+            if enemy.alive and getattr(enemy, "type", None) != EnemyType.BOSS
+            and pygame.Vector2(enemy.rect.center).distance_squared_to(player.rect.center) <= 900 * 900
+        ]
+        if not candidates:
+            return None
+
+        def score(enemy):
+            center = pygame.Vector2(enemy.rect.center)
+            nearby = sum(
+                1 for other in candidates
+                if other is not enemy and center.distance_squared_to(other.rect.center) <= 180 * 180
+            )
+            distance = center.distance_to(player.rect.center)
+            return (nearby, -distance)
+
+        return pygame.Vector2(max(candidates, key=score).rect.center)
+
+    def _update_engineer_blades(self, dt, player, enemies, effects=None, audio=None, spatial_grid=None):
+        killed_enemies = []
+        if getattr(player, "engineer_blade_count", 0) <= 0:
+            return killed_enemies
+        live_ids = {id(enemy) for enemy in enemies if enemy.alive}
+        player.engineer_blade_hit_timers = {
+            enemy_id: timer
+            for enemy_id, timer in getattr(player, "engineer_blade_hit_timers", {}).items()
+            if enemy_id in live_ids and timer > 0
+        }
+        positions = getattr(player, "engineer_blade_positions", [])
+        if not positions:
+            return killed_enemies
+        radius = 24
+        damage = max(1, int(getattr(player, "engineer_blade_damage", 1)))
+        overdrive = getattr(player, "engineer_blade_overdrive_timer", 0.0) > 0
+        if overdrive:
+            damage += getattr(player, "engineer_blade_overdrive_damage_bonus", 0)
+        if spatial_grid is not None:
+            candidate_map = {}
+            for blade_pos in positions:
+                rect = pygame.Rect(round(blade_pos.x - 64), round(blade_pos.y - 64), 128, 128)
+                for enemy in spatial_grid.nearby_rect(rect):
+                    candidate_map[id(enemy)] = enemy
+            candidates = list(candidate_map.values())
+        else:
+            candidates = list(enemies)
+        for enemy in candidates:
+            if not enemy.alive:
+                continue
+            enemy_id = id(enemy)
+            if player.engineer_blade_hit_timers.get(enemy_id, 0) > 0:
+                continue
+            enemy_center = pygame.Vector2(enemy.rect.center)
+            hit_pos = None
+            for blade_pos in positions:
+                if blade_pos.distance_squared_to(enemy_center) <= (radius + max(enemy.rect.width, enemy.rect.height) * 0.5) ** 2:
+                    hit_pos = blade_pos
+                    break
+            if hit_pos is None:
+                continue
+            player.engineer_blade_hit_timers[enemy_id] = getattr(player, "engineer_blade_hit_cooldown", 0.6)
+            player.engineer_blade_hit_flash = 0.16
+            killed = enemy.take_damage(damage)
+            if effects:
+                effects.damage_number(damage, enemy.rect.midtop, critical=False)
+                if hasattr(effects, "blade_hit"):
+                    effects.blade_hit(hit_pos, strong=overdrive)
+                else:
+                    effects.ring(hit_pos, radius=34, life=0.16, width=2)
+            if audio:
+                audio.play("hit")
+            if killed:
+                killed_enemies.append(enemy)
+        return killed_enemies
+
+    def _update_engineer_bomber(self, dt, player, enemies, effects=None, audio=None):
+        killed_enemies = []
+        if getattr(player, "engineer_bomber_max_runs", 0) <= 0:
+            player.engineer_bomber_state = "inactive"
+            return killed_enemies
+
+        state = getattr(player, "engineer_bomber_state", "inactive")
+        if state == "inactive":
+            player.engineer_bomber_state = "ready"
+            player.engineer_bomber_pos.update(player.engineer_bomber_launch_pos())
+            return killed_enemies
+
+        if state == "cooldown":
+            player.engineer_bomber_timer = max(0.0, player.engineer_bomber_timer - dt)
+            if player.engineer_bomber_timer <= 0:
+                player.engineer_bomber_state = "respawn"
+                player.engineer_bomber_timer = 0.35
+            return killed_enemies
+
+        if state == "respawn":
+            player.engineer_bomber_timer = max(0.0, player.engineer_bomber_timer - dt)
+            if player.engineer_bomber_timer <= 0:
+                player.engineer_bomber_state = "ready"
+                player.engineer_bomber_runs_remaining = 0
+                player.engineer_bomber_pos.update(player.engineer_bomber_launch_pos())
+            return killed_enemies
+
+        if state == "ready":
+            player.engineer_bomber_state = "acquire"
+            player.engineer_bomber_runs_remaining = max(1, getattr(player, "engineer_bomber_max_runs", 1))
+            return killed_enemies
+
+        if state == "acquire":
+            target = self._acquire_bomber_target(player, enemies)
+            if target is None:
+                player.engineer_bomber_state = "ready"
+                player.engineer_bomber_target_id = None
+                return killed_enemies
+            player.engineer_bomber_target_id = id(target)
+            player.engineer_bomber_target_pos.update(target.rect.center)
+            player.engineer_bomber_state = "flying"
+            player.engineer_bomber_timer = 2.4
+            if audio:
+                audio.play("shoot")
+            return killed_enemies
+
+        if state != "flying":
+            return killed_enemies
+
+        target = next((enemy for enemy in enemies if enemy.alive and id(enemy) == player.engineer_bomber_target_id), None)
+        if target is not None:
+            player.engineer_bomber_target_pos.update(target.rect.center)
+        direction = player.engineer_bomber_target_pos - player.engineer_bomber_pos
+        distance = direction.length()
+        player.engineer_bomber_timer = max(0.0, player.engineer_bomber_timer - dt)
+        if distance > 0:
+            step = min(distance, getattr(player, "engineer_bomber_speed", 430) * dt)
+            player.engineer_bomber_pos += direction.normalize() * step
+        if distance > 24 and player.engineer_bomber_timer > 0:
+            return killed_enemies
+
+        killed_enemies.extend(self._explode_engineer_bomber(player, enemies, effects, audio))
+        player.engineer_bomber_runs_remaining = max(0, player.engineer_bomber_runs_remaining - 1)
+        if player.engineer_bomber_runs_remaining > 0:
+            player.engineer_bomber_state = "respawn"
+            player.engineer_bomber_timer = 0.45
+            player.engineer_bomber_target_id = None
+        else:
+            player.engineer_bomber_state = "cooldown"
+            player.engineer_bomber_timer = getattr(player, "engineer_bomber_cooldown", 5.0)
+            player.engineer_bomber_target_id = None
+        return killed_enemies
+
+    def _acquire_bomber_target(self, player, enemies):
+        candidates = [
+            enemy for enemy in enemies
+            if enemy.alive and getattr(enemy, "type", None) != EnemyType.BOSS
+            and pygame.Vector2(enemy.rect.center).distance_squared_to(player.rect.center) <= 760 * 760
+        ]
+        if not candidates:
+            return None
+        def score(enemy):
+            center = pygame.Vector2(enemy.rect.center)
+            nearby = 0
+            for other in candidates:
+                if other is enemy:
+                    continue
+                if center.distance_squared_to(other.rect.center) <= 150 * 150:
+                    nearby += 1
+            distance = center.distance_to(player.rect.center)
+            return (nearby, -distance)
+        return max(candidates, key=score)
+
+    def _explode_engineer_bomber(self, player, enemies, effects=None, audio=None):
+        killed_enemies = []
+        radius = getattr(player, "engineer_bomber_radius", 96)
+        damage = max(1, int(getattr(player, "engineer_bomber_damage", 1)))
+        center = pygame.Vector2(player.engineer_bomber_pos)
+        player.engineer_bomber_explosion_flash = 0.28
+        if effects:
+            effects.ring(center, color=(255, 120, 45), radius=radius, life=0.36, width=5)
+            effects.message("BOMBER", center)
+        if audio:
+            audio.play("hit")
+        for enemy in list(enemies):
+            if not enemy.alive or getattr(enemy, "type", None) == EnemyType.BOSS:
+                continue
+            if center.distance_squared_to(enemy.rect.center) > radius * radius:
+                continue
+            killed = enemy.take_damage(damage)
+            if effects:
+                effects.damage_number(damage, enemy.rect.midtop, critical=False)
+            if killed:
+                killed_enemies.append(enemy)
+        return killed_enemies
+
+    def _spawn_ninja_shuriken(self, player, projectiles, enemy):
+        damage = getattr(player, "ninja_shuriken_damage", 0)
+        if damage <= 0:
+            return
+        origin = pygame.Vector2(player.rect.center)
+        direction = pygame.Vector2(enemy.rect.center) - origin
+        if direction.length_squared() == 0:
+            direction = player.aim_direction
+        projectiles.append(
+            Projectile(
+                origin.x,
+                origin.y,
+                direction,
+                damage + int(damage * getattr(player, "ninja_momentum", 0.0)),
+                speed=max(500, getattr(player, "ninja_shuriken_speed", 760)),
+                pierce=0,
+                critical=False,
+                source="ninja_shuriken",
+            )
+        )
+
+    def _reward_enemy_kill(self, player, enemy, enemy_bullets, reward_multiplier, loot_system, feel=None, effects=None, audio=None):
+        owner_id = id(enemy)
+        for bullet in enemy_bullets:
+            if getattr(bullet, "owner_id", None) == owner_id:
+                bullet.kill()
+        if audio:
+            audio.play("enemy_death")
+        if effects:
+            effects.ring(enemy.rect.center, radius=62, life=0.30, width=4)
+        if enemy.type == EnemyType.BOSS:
+            player.add_xp(BOSS_XP_REWARD)
+            player.add_gold(BOSS_GOLD_REWARD)
+        elif enemy.type == EnemyType.ELITE:
+            if feel:
+                feel.elite_kill()
+            xp = ENEMY_XP_REWARD * reward_multiplier * 5
+            gold = ENEMY_GOLD_REWARD * reward_multiplier * 6
+            if loot_system:
+                loot_system.spawn_enemy_rewards(enemy.rect.center, gold, xp)
+            else:
+                player.add_xp(xp)
+                player.add_gold(gold)
+        elif enemy.type == EnemyType.LOOT:
+            if feel:
+                feel.enemy_kill()
+            bonus_gold = LOOT_HIT_GOLD_REWARD * LOOT_ESCAPE_KILL_BONUS_MULTIPLIER
+            bonus_xp = LOOT_HIT_XP_REWARD * LOOT_ESCAPE_KILL_BONUS_MULTIPLIER
+            if loot_system:
+                loot_system.spawn_enemy_rewards(enemy.rect.center, bonus_gold, bonus_xp)
+            else:
+                player.add_xp(bonus_xp)
+                player.add_gold(bonus_gold)
+            if effects:
+                effects.message(f"LOOT BONUS +{bonus_gold}g +{bonus_xp}xp", enemy.rect.midtop)
+        else:
+            if feel:
+                feel.enemy_kill()
+            xp = ENEMY_XP_REWARD * reward_multiplier
+            gold = ENEMY_GOLD_REWARD * reward_multiplier
+            if loot_system:
+                loot_system.spawn_enemy_rewards(enemy.rect.center, gold, xp)
+            else:
+                player.add_xp(xp)
+                player.add_gold(gold)
+        self._apply_vampire_kill_reward(player, enemy, effects)
+
+    def _apply_vampire_kill_reward(self, player, enemy, effects=None):
+        heal = getattr(player, "vampire_kill_heal", 0)
+        blood_gain = getattr(player, "vampire_blood_per_kill", 0)
+        if getattr(enemy, "_vampire_rewarded", False):
+            return
+        enemy._vampire_rewarded = True
+        wounded = getattr(enemy, "vampire_wound_stacks", 0) > 0
+        if getattr(enemy, "type", None) == EnemyType.ELITE:
+            heal += getattr(player, "vampire_elite_bonus_heal", 0)
+            blood_gain += 2
+        if wounded:
+            self._spawn_blood_orb(player, enemy, effects=effects)
+            if blood_gain <= 0:
+                blood_gain = 1
+        before = player.health
+        if blood_gain:
+            source = "wounded_kill" if wounded else "kill"
+            player.add_blood(blood_gain, source=source)
+        if heal:
+            player.heal(heal + min(getattr(player, "vampire_blood", 0), 3))
+        if effects and player.health > before:
+            effects.message(f"BLOOD +{player.health - before}", player.rect.midtop)
+
+    def _apply_vampire_hit_feed(self, player, enemy, effects=None):
+        feed = 0
+        if getattr(enemy, "type", None) == EnemyType.BOSS:
+            feed = getattr(player, "vampire_blood_on_boss_hit", 0)
+        elif getattr(player, "vampire_blood_on_hit", 0) > 0:
+            counter = getattr(enemy, "_vampire_hit_counter", 0) + 1
+            enemy._vampire_hit_counter = counter
+            if counter % 3 == 0:
+                feed = getattr(player, "vampire_blood_on_hit", 0)
+        if feed <= 0:
+            return
+        source = "boss_hit" if getattr(enemy, "type", None) == EnemyType.BOSS else "hit"
+        gained = player.add_blood(feed, source=source)
+        if gained and effects:
+            effects.message(f"BLOOD +{gained}", enemy.rect.midtop)

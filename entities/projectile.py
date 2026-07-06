@@ -1,9 +1,26 @@
 import pygame
 from settings import PROJECTILE_LIFETIME, YELLOW, PROJECTILE_SPEED
+from systems.asset_loader import load_image
 
 
 class Projectile:
-    def __init__(self, x, y, direction, damage, speed=None, pierce=0, critical=False):
+    _bullet_image = None
+
+    def __init__(
+        self,
+        x,
+        y,
+        direction,
+        damage,
+        speed=None,
+        pierce=0,
+        critical=False,
+        knockback=0,
+        explosive=False,
+        explosion_radius=95,
+        explosion_splash_ratio=1 / 3,
+        source="player",
+    ):
         self.pos          = pygame.Vector2(x, y)
         self.previous_pos = self.pos.copy()
         self.direction    = pygame.Vector2(direction)
@@ -20,14 +37,24 @@ class Projectile:
         self.damage          = damage
         self.pierce_remaining = pierce
         self.critical        = critical
+        self.knockback       = knockback
+        self.explosive       = explosive
+        self.explosion_radius = explosion_radius
+        self.explosion_splash_ratio = explosion_splash_ratio
+        self.source          = source
         self.alive           = True
         self.hit_ids         = set()
+        self.anim_time       = 0.0
+
+        if Projectile._bullet_image is None:
+            Projectile._bullet_image = load_image("bullet.png")
 
     def update(self, dt):
         self.previous_pos = self.pos.copy()
         self.pos += self.direction * self.speed * dt
         self.rect.center  = (round(self.pos.x), round(self.pos.y))
         self.remaining_life -= dt
+        self.anim_time += dt
         if self.remaining_life <= 0:
             self.alive = False
 
@@ -45,12 +72,29 @@ class Projectile:
         self.alive = False
 
     def draw(self, surface, camera):
+        if self._draw_sprite(surface, camera):
+            return
+
         p    = camera.apply_pos(self.pos)
         prev = camera.apply_pos(self.previous_pos)
 
         px, py = round(p.x), round(p.y)
 
-        if self.critical:
+        if self.source == "engineer_drone":
+            pygame.draw.line(surface, (90, 210, 255), prev, p, 3)
+            pygame.draw.circle(surface, (50, 130, 210), (px, py), self.radius + 2)
+            pygame.draw.circle(surface, (230, 250, 255), (px, py), max(2, self.radius - 1))
+        elif self.source == "ninja_shuriken":
+            pygame.draw.line(surface, (160, 230, 255), prev, p, 2)
+            r = self.radius + 2
+            pts = [(px, py - r), (px + r, py), (px, py + r), (px - r, py)]
+            pygame.draw.polygon(surface, (150, 235, 255), pts)
+            pygame.draw.polygon(surface, (25, 65, 90), pts, 1)
+        elif self.explosive:
+            pygame.draw.line(surface, (255, 90, 20), prev, p, 4)
+            pygame.draw.circle(surface, (255, 120, 30), (px, py), self.radius + 3)
+            pygame.draw.circle(surface, (255, 235, 120), (px, py), max(2, self.radius - 1))
+        elif self.critical:
             # crit: orange diamond with bright core + long trail
             pygame.draw.line(surface, (255, 140, 20), prev, p, 3)
             # diamond shape
@@ -64,3 +108,19 @@ class Projectile:
             pygame.draw.line(surface, (255, 240, 120), prev, p, 2)
             pygame.draw.circle(surface, YELLOW, (px, py), self.radius)
             pygame.draw.circle(surface, (255, 255, 240), (px, py), max(1, self.radius - 2))
+
+    def _draw_sprite(self, surface, camera):
+        image = None
+
+        if self.source == "player" and not self.critical and not self.explosive:
+            image = Projectile._bullet_image
+
+        if image is None:
+            return False
+
+        angle = -self.direction.as_polar()[1]
+        rotated = pygame.transform.rotate(image, angle)
+        p = camera.apply_pos(self.pos)
+        rect = rotated.get_rect(center=(round(p.x), round(p.y)))
+        surface.blit(rotated, rect)
+        return True

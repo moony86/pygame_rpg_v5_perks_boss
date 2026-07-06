@@ -1,5 +1,9 @@
 import pygame
-from settings import SCREEN_WIDTH, WHITE, BLACK
+from settings import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, BLACK
+
+DIALOGUE_WIDTH_RATIO = 0.92
+DIALOGUE_HEIGHT = 92
+DIALOGUE_BOTTOM_MARGIN = 82
 
 
 class DialogueSystem:
@@ -9,11 +13,14 @@ class DialogueSystem:
         self.active = False
         self.current_speaker = ""
         self.current_text = ""
+        self._cached_key = None
+        self._cached_surfaces = []
 
     def show(self, speaker, text):
         self.active = True
         self.current_speaker = speaker
         self.current_text = text
+        self._cached_key = None
 
     def toggle_npc(self, npc):
         if self.active and self.current_speaker == npc.name:
@@ -25,12 +32,20 @@ class DialogueSystem:
         self.active = False
         self.current_speaker = ""
         self.current_text = ""
+        self._cached_key = None
+        self._cached_surfaces = []
 
     def draw(self, surface):
         if not self.active:
             return
 
-        box_rect = pygame.Rect(50, 455, SCREEN_WIDTH - 100, 145)
+        width = int(SCREEN_WIDTH * DIALOGUE_WIDTH_RATIO)
+        box_rect = pygame.Rect(
+            (SCREEN_WIDTH - width) // 2,
+            SCREEN_HEIGHT - DIALOGUE_BOTTOM_MARGIN - DIALOGUE_HEIGHT,
+            width,
+            DIALOGUE_HEIGHT,
+        )
         pygame.draw.rect(surface, BLACK, box_rect, border_radius=8)
         pygame.draw.rect(surface, WHITE, box_rect, 2, border_radius=8)
 
@@ -38,18 +53,31 @@ class DialogueSystem:
         self._draw_wrapped_text(surface, full_text, box_rect.x + 18, box_rect.y + 16, box_rect.width - 36)
 
     def _draw_wrapped_text(self, surface, text, x, y, max_width):
+        cache_key = (text, max_width)
+        if self._cached_key != cache_key:
+            self._cached_key = cache_key
+            self._cached_surfaces = [
+                self.font.render(line, True, WHITE)
+                for line in self._wrap_lines(text, max_width)
+            ]
+        line_height = self.font.get_linesize()
+        for rendered in self._cached_surfaces:
+            surface.blit(rendered, (x, y))
+            y += line_height
+
+    def _wrap_lines(self, text, max_width):
         words = text.split(" ")
         line = ""
-        line_height = self.font.get_linesize()
+        lines = []
 
         for word in words:
             test_line = line + word + " "
             if self.font.size(test_line)[0] <= max_width:
                 line = test_line
             else:
-                surface.blit(self.font.render(line, True, WHITE), (x, y))
-                y += line_height
+                lines.append(line)
                 line = word + " "
 
         if line:
-            surface.blit(self.font.render(line, True, WHITE), (x, y))
+            lines.append(line)
+        return lines

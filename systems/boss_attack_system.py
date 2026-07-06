@@ -7,7 +7,7 @@ from systems.world_utils import rotate_vector
 
 
 class BossAttackSystem:
-    def handle_action(self, action, enemies, enemy_bullets, effects=None, audio=None, player=None):
+    def handle_action(self, action, enemies, enemy_bullets, effects=None, audio=None, player=None, enemy_factory=None):
         boss_pos = pygame.Vector2(action["x"], action["y"])
         base = pygame.Vector2(action.get("direction", pygame.Vector2(1, 0)))
         if base.length_squared() == 0:
@@ -29,8 +29,10 @@ class BossAttackSystem:
             self._boss_burst_cone(action, base, phase, threat, damage_multiplier, enemy_bullets, player)
         elif action["type"] == "boss_ring":
             self._boss_ring(action, phase, threat, damage_multiplier, enemy_bullets, effects, audio)
+        elif action["type"] == "boss_laser":
+            self._boss_laser(action, base, phase, threat, damage_multiplier, enemy_bullets, effects)
         else:
-            self._boss_summon_leap(action, base, phase, threat, enemies, effects)
+            self._boss_summon_leap(action, base, phase, threat, enemies, effects, enemy_factory)
 
     def _boss_burst_cone(self, action, base, phase, threat, damage_multiplier, enemy_bullets, player=None):
         count = 4 + min(2, phase)
@@ -64,6 +66,16 @@ class BossAttackSystem:
                     action["x"], action["y"], toward_player, int(14 * damage_multiplier),
                     speed=260 + phase * 45, homing_target=player, turn_rate=0.85 + phase * 0.25,
                 ))
+                for offset in (-18, 18):
+                    enemy_bullets.append(EnemyBullet(
+                        action["x"],
+                        action["y"],
+                        rotate_vector(toward_player, offset),
+                        int(11 * damage_multiplier),
+                        speed=330 + phase * 50,
+                        homing_target=player,
+                        turn_rate=0.55 + phase * 0.18,
+                    ))
 
         if effects:
             effects.ring((action["x"], action["y"]), radius=210 + phase * 20, life=0.6, width=10)
@@ -94,9 +106,16 @@ class BossAttackSystem:
         if effects:
             effects.ring((action["x"], action["y"]), radius=160 + phase * 18, life=0.45, width=6)
         if audio:
-            audio.play("boss")
+            audio.play("boss_phase")
 
-    def _boss_summon_leap(self, action, base, phase, threat, enemies, effects):
+    def _boss_laser(self, action, base, phase, threat, damage_multiplier, enemy_bullets, effects):
+        damage = int((18 + phase * 3) * damage_multiplier)
+        for angle in range(-36, 37, 12):
+            enemy_bullets.append(EnemyBullet(action["x"], action["y"], rotate_vector(base, angle), damage, speed=520 + phase * 35))
+        if effects:
+            effects.ring((action["x"], action["y"]), radius=130 + phase * 20, life=0.38, width=5)
+
+    def _boss_summon_leap(self, action, base, phase, threat, enemies, effects, enemy_factory=None):
         boss_pos = pygame.Vector2(action["x"], action["y"])
         summon_count = 2 if phase == 1 else 3
         spread = 90 if summon_count == 2 else 120
@@ -105,7 +124,11 @@ class BossAttackSystem:
             offset = -spread / 2 + (spread / max(1, summon_count - 1)) * i
             pos = boss_pos + rotate_vector(base, offset) * (120 + i * 18)
             enemy_type = types[i % len(types)]
-            enemies.append(Enemy(pos.x, pos.y, enemy_type, difficulty=max(1.0, threat * 0.72)))
+            difficulty = max(1.0, threat * 0.72)
+            if enemy_factory is not None:
+                enemies.append(enemy_factory(pos.x, pos.y, enemy_type, difficulty))
+            else:
+                enemies.append(Enemy(pos.x, pos.y, enemy_type, difficulty=difficulty))
 
         if effects:
             effects.ring((action["x"], action["y"]), radius=120, life=0.45, width=8)

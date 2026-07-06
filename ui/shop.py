@@ -40,7 +40,7 @@ def draw_shop_hint(surface, font, npc_role, upgrade_system, player_gold):
         row_y = panel_y + 32 + (i - 1) * 28
 
         # تحديد نص الترقية (اسم + مستوى/أقصى مستوى)
-        if key != "heal":
+        if key != "heal" and not key.startswith("skill_"):
             level = upgrade_system.get_level(key)
             max_level = upgrade_system.get_max_level(key)
             display_name = f"{name} {level}/{max_level}"

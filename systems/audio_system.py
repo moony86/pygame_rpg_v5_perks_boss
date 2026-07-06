@@ -4,6 +4,27 @@ import pygame
 
 from config import CONFIG
 
+SOUND_FILES = {
+    "shoot": "shoot.wav",
+    "hit": "hit.wav",
+    "enemy_death": "enemy_death.wav",
+    "dash": "dash.wav",
+    "level_up": "level_up.wav",
+    "room_clear": "room_clear.wav",
+    "boss_spawn": "boss_spawn.wav",
+    "boss_phase": "boss_phase.wav",
+    "boss_death": "boss_death.wav",
+    "coin_pickup": "coin_pickup.wav",
+    "xp_pickup": "xp_pickup.wav",
+    "peckcard": "peckcard.wav",
+    "wave_start": "wave_start.wav",
+    "wave_clear": "wave_clear.wav",
+    "portal_open": "portal_open.wav",
+    "upgrade_buy": "upgrade_buy.wav",
+    "menu_select": "menu_select.wav",
+    "tea_drink": "tea_drink.wav",
+}
+
 
 def resource_path(relative_path):
     base_path = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -29,19 +50,7 @@ class AudioSystem:
         self.load_sounds()
 
     def load_sounds(self):
-        sound_files = {
-            "shoot": "shoot.wav",
-            "hit": "hit.wav",
-            "enemy_death": "enemy_death.wav",
-            "dash": "dash.wav",
-            "level_up": "level_up.wav",
-            "room_clear": "room_clear.wav",
-            "boss_spawn": "boss_spawn.wav",
-            "boss_phase": "boss_phase.wav",
-            "menu_select": "menu_select.wav",
-        }
-
-        for name, filename in sound_files.items():
+        for name, filename in SOUND_FILES.items():
             path = self.sounds_path / filename
 
             if not path.exists():

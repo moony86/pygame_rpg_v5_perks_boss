@@ -1,43 +1,25 @@
-UPGRADES = {
-    "blacksmith": [
-        ("Sharpen Blade", 30, "damage"),
-        ("Piercing Tips", 45, "pierce"),
-        ("Rapid Trigger", 45, "firerate"),
-    ],
-    "healer": [
-        ("Heal", 18, "heal"),
-        ("Max Health", 38, "maxhp"),
-        ("Room Regen", 35, "regen"),
-    ],
-}
+from definitions.upgrade_definitions import (
+    UPGRADE_BASE_COSTS,
+    UPGRADE_MAX_LEVELS,
+    UPGRADE_OPTIONS,
+)
 
 
-MAX_LEVELS = {
-    "damage": 6,
-    "pierce": 3,
-    "firerate": 4,
-    "maxhp": 6,
-    "regen": 4,
-}
-
-
-BASE_COSTS = {
-    "damage": 30,
-    "pierce": 45,
-    "firerate": 45,
-    "maxhp": 38,
-    "regen": 35,
-}
+UPGRADES = UPGRADE_OPTIONS
+MAX_LEVELS = UPGRADE_MAX_LEVELS
+BASE_COSTS = UPGRADE_BASE_COSTS
 
 
 class UpgradeSystem:
     def __init__(self):
         self.levels = {
-            "damage": 0,
-            "pierce": 0,
-            "firerate": 0,
-            "maxhp": 0,
-            "regen": 0,
+            "power_rounds": 0,
+            "needle_rounds": 0,
+            "rapid_fire": 0,
+            "vital_core": 0,
+            "battle_recovery": 0,
+            "weapon_double": 0,
+            "impact_drive": 0,
         }
 
     def reset(self):
@@ -51,7 +33,7 @@ class UpgradeSystem:
         return MAX_LEVELS.get(key, 1)
 
     def get_cost(self, key, base_cost):
-        if key == "heal":
+        if key == "heal" or key.startswith("skill_"):
             return base_cost
 
         level = self.get_level(key)
@@ -66,7 +48,7 @@ class UpgradeSystem:
         name, base_cost, key = options[index]
         cost = self.get_cost(key, base_cost)
 
-        if key != "heal":
+        if key != "heal" and not key.startswith("skill_"):
             level = self.get_level(key)
             max_level = self.get_max_level(key)
 
@@ -76,13 +58,13 @@ class UpgradeSystem:
         if not player.spend_gold(cost):
             return f"Need {cost} gold."
 
-        if key == "damage":
+        if key == "power_rounds":
             player.damage_bonus += 5
 
-        elif key == "pierce":
+        elif key == "needle_rounds":
             player.pierce += 1
 
-        elif key == "firerate":
+        elif key == "rapid_fire":
             player.fire_rate_multiplier += 0.12
 
         elif key == "heal":
@@ -90,14 +72,35 @@ class UpgradeSystem:
             player.last_upgrade_text = name
             return f"Healed for {cost} gold."
 
-        elif key == "maxhp":
+        elif key == "vital_core":
             player.max_health += 18
             player.heal(18)
 
-        elif key == "regen":
-            player.regen_on_room_clear += 8
+        elif key == "battle_recovery":
+            player.regen_on_room_clear += 12
 
-        if key != "heal":
+        elif key == "weapon_double":
+            player.weapon_damage_multiplier = max(player.weapon_damage_multiplier, 2.0)
+
+        elif key == "impact_drive":
+            player.knockback_power += 0.55
+
+        elif key == "skill_blast":
+            player.active_skill = "blast"
+            player.last_upgrade_text = "Skill: Blast"
+            return "Equipped Blast skill."
+
+        elif key == "skill_surge":
+            player.active_skill = "surge"
+            player.last_upgrade_text = "Skill: Surge"
+            return "Equipped Surge skill."
+
+        elif key == "skill_ghost":
+            player.active_skill = "ghost"
+            player.last_upgrade_text = "Skill: Ghost"
+            return "Equipped Ghost skill."
+
+        if key != "heal" and not key.startswith("skill_"):
             self.levels[key] += 1
             level = self.levels[key]
             max_level = self.get_max_level(key)

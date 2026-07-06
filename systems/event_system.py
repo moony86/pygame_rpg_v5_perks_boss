@@ -17,5 +17,8 @@ class EventSystem:
         for handler in handlers:
             handler(data)
 
+        for handler in self.listeners.get("*", []):
+            handler(event_name, data)
+
     def clear(self):
         self.listeners.clear()

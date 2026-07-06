@@ -1,18 +1,22 @@
 import pygame
 import sys
 import random
+import math
+from time import perf_counter
 from settings import (
-    SCREEN_WIDTH, SCREEN_HEIGHT, MAP_SIZE, FPS, BLACK,
+    SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BLACK,
     ROOMS_TO_BOSS,
-    ENEMY_BULLET_DAMAGE,
     DEBUG_ROOM_FLOW,
     ENEMY_SEPARATION_FORCE,
     ENEMY_PLAYER_PRESSURE_FORCE,
+    ENEMY_RESPAWN_SAFE_RADIUS,
+    BLAST_RADIUS,
+    BLAST_FORCE,
+    DEV_TOOLS_ENABLED,
 )
 from game_state import GameState
 from entities.player import Player
 from entities.enemy import EnemyType
-from entities.enemy_bullet import EnemyBullet
 from systems.camera import Camera
 from systems.dialogue_system import DialogueSystem
 from systems.combat_system import CombatSystem
@@ -30,10 +34,14 @@ from ui.hud import draw_hud
 from ui.shop import draw_shop_hint
 from ui.end_screen import draw_end_screen
 from ui.room_banner import draw_room_banner
+from ui.minimap import draw_minimap
+from ui.dev_panel import DevPanel
+from ui.authoring_panel import AuthoringPanel
+from ui.wave_designer_panel import WaveDesignerPanel
+from ui.asset_browser import AssetBrowser
 
 from systems.collision_system import CollisionSystem
 from systems.world_utils import (
-    rotate_vector,
     nearest_npc,
     draw_world_background,
 )
@@ -45,6 +53,26 @@ from systems.event_system import EventSystem
 from systems.crosshair_system import CrosshairSystem
 from systems.input_system import InputSystem
 from systems.wave_system import WaveSystem
+from systems.room_layout import draw_room_obstacles
+from systems.enemy_pool import EnemyPool
+from systems.combat_action_resolver import CombatActionResolver
+from systems.dev_tools import DevTools
+from systems.room_authoring import RoomAuthoring
+from systems.wave_designer import WaveDesigner
+from systems.asset_pipeline import AssetPipeline
+from systems.prefab_factory import PrefabFactory
+from systems.prefab_registry import PrefabRegistry
+from systems.room_loader import RoomLoader
+from systems.loot_system import LootSystem
+from systems.game_feel import GameFeelSystem
+from systems.room_flow import RoomFlowSystem
+from systems.xp_budget import award_room_completion_xp
+from systems.frame_profiler import FrameProfiler
+from systems.music_system import MusicSystem
+from systems.horde_system import HordeSystem
+from systems.room_bounds import current_room_bounds, current_room_rect
+from systems.prototype_room import PrototypeCombatRoom
+from systems.stage_system import StageSystem
 from data.dialogues import DIALOGUES
 
 
@@ -52,7 +80,7 @@ class Game:
     def __init__(self):
         pygame.init()
         pygame.mouse.set_visible(False)
-        pygame.display.set_caption("Blue Cube v5")
+        pygame.display.set_caption("Blue Cube v0.5")
         self.window = pygame.display.set_mode(
             (SCREEN_WIDTH, SCREEN_HEIGHT),
             pygame.RESIZABLE
@@ -66,14 +94,14 @@ class Game:
         self.font = pygame.font.SysFont("Arial", 22)
         self.big_font = pygame.font.SysFont("Arial", 48)
 
-        self.menu_title_surf = self.big_font.render("BLUE CUBE v5", True, (255, 255, 255))
+        self.menu_title_surf = self.big_font.render("BLUE CUBE v0.5", True, (255, 255, 255))
         self.menu_hint_surf = self.font.render("Click on an option to select", True, (255, 255, 255))
 
         self.rect_new_run = pygame.Rect(0, 0, 200, 50)
-        self.rect_new_run.center = (SCREEN_WIDTH // 2, 350)
+        self.rect_new_run.center = (SCREEN_WIDTH // 2, (SCREEN_HEIGHT // 2) - 10)
 
         self.rect_quit = pygame.Rect(0, 0, 200, 50)
-        self.rect_quit.center = (SCREEN_WIDTH // 2, 430)
+        self.rect_quit.center    = (SCREEN_WIDTH // 2, (SCREEN_HEIGHT // 2) + 55)
 
         self.text_new_run = self.font.render("New Run", True, (0, 255, 0))
         self.text_quit = self.font.render("Quit", True, (255, 0, 0))
@@ -91,21 +119,52 @@ class Game:
         self.rooms = RoomSystem()
         self.effects = EffectsSystem()
         self.audio = AudioSystem()
+        self.music = MusicSystem()
         self.collision = CollisionSystem()
         self.events = EventSystem()
         self.shooting = ShootingSystem()
         self.boss_attacks = BossAttackSystem()
+        self.combat_actions = CombatActionResolver()
+        self.enemy_pool = EnemyPool()
+        self.prefabs = PrefabRegistry(PrefabFactory(self))
         self.crosshair = CrosshairSystem()
+        self.room_authoring = RoomAuthoring(self)
+        self.room_loader = RoomLoader(self, self.room_authoring)
+        self.authoring_panel = AuthoringPanel(self, self.room_authoring, self.room_loader)
+        self.wave_designer = WaveDesigner(self)
+        self.wave_designer_panel = WaveDesignerPanel(self.wave_designer)
+        self.asset_pipeline = AssetPipeline()
+        self.asset_browser = AssetBrowser(self.asset_pipeline)
+        self.loot = LootSystem()
+        self.feel = GameFeelSystem()
+        self.room_flow = RoomFlowSystem()
+        self.horde = HordeSystem()
+        self.prototype_room = PrototypeCombatRoom(self)
+        self.stage = StageSystem(self)
+        self.movement_pickups = []
+        self.profiler = FrameProfiler(enabled=DEV_TOOLS_ENABLED)
+        self.dev_tools = DevTools(self, self.room_authoring)
+        self.dev_panel = DevPanel(
+            self,
+            self.dev_tools,
+            self.authoring_panel,
+            self.wave_designer_panel,
+            self.wave_designer,
+            self.asset_browser,
+        )
         self.perk_card_rects = []
+        self.perk_reroll_rects = []
 
         self.setup_event_listeners()
         
 
         self.npcs = []
-        self.portal_rect = pygame.Rect(MAP_SIZE // 2 - 45, MAP_SIZE // 2 - 170, 90, 55)
+        bounds = current_room_bounds()
+        self.portal_rect = self.prefabs.spawn_prefab("portal_hub", x=bounds.centerx - 45, y=bounds.centery - 170)
         self.enemies = []
         self.projectiles = []
         self.enemy_bullets = []
+        self.room_obstacles = []
 
         self.input = InputSystem()
         self.perk_input_lock = 0.0
@@ -114,6 +173,7 @@ class Game:
         self.room_number = 1
         self.room_kills = 0
         self.total_kills = 0
+        self.room_completion_xp_awarded = set()
         self.message = ""
         self.wave_notice_text = ""
         self.wave_notice_timer = 0.0
@@ -122,8 +182,8 @@ class Game:
 
         self.waves = WaveSystem()
         self.room_exit_open = False
-        self.room_exit_rect = pygame.Rect(0, 0, 170, 170)
-        self.room_exit_rect.center = (MAP_SIZE // 2, MAP_SIZE // 2 - 180)
+        self.room_exit_rect = self.prefabs.spawn_prefab("room_exit", x=0, y=0)
+        self.room_exit_rect.center = (bounds.centerx, bounds.centery - 180)
 
         #self.reset_run()
         
@@ -133,16 +193,16 @@ class Game:
         self.events.subscribe("player_dash", lambda data: self.audio.play("dash"))
         self.events.subscribe("enemy_hit", lambda data: self.audio.play("hit"))
         self.events.subscribe("enemy_killed", lambda data: self.audio.play("enemy_death"))
-        self.events.subscribe("perk_available",lambda data: self.audio.play("level_up"))
+        self.events.subscribe("perk_available", lambda data: self.audio.play("peckcard"))
         self.events.subscribe("room_cleared", lambda data: self.audio.play("room_clear"))
         self.events.subscribe("boss_spawned", lambda data: self.audio.play("boss_spawn"))
         self.events.subscribe("boss_phase_changed", lambda data: self.audio.play("boss_phase"))
-        self.events.subscribe("npc_purchase", lambda data: self.audio.play("menu_select"))
+        self.events.subscribe("npc_purchase", lambda data: self.audio.play("upgrade_buy"))
 
 
-        self.events.subscribe("state_hub", lambda data: self.audio.play_music("hub.ogg"))
-        self.events.subscribe("state_room", lambda data: self.audio.play_music("combat.ogg"))
-        self.events.subscribe("state_boss", lambda data: self.audio.play_music("boss.ogg"))
+        self.events.subscribe("state_hub", lambda data: self.music.play_music("hub", fade_ms=600))
+        self.events.subscribe("state_room", lambda data: self.music.play_music("room", fade_ms=600))
+        self.events.subscribe("state_boss", lambda data: self.music.play_music("boss", fade_ms=600))
 
     def configure_viewport(self, window_size):
         window_w = max(1, int(window_size[0]))
@@ -197,18 +257,31 @@ class Game:
     def reset_run(self):
         self.player.reset()
         self.upgrades.reset()
+        self.loot.reset()
+        self.room_flow.reset_run()
         self.room_number = 1
         self.room_kills = 0
         self.total_kills = 0
+        self.room_completion_xp_awarded.clear()
         self.message = ""
         self.effects.reset()
+        self.feel.reset()
+        self.stage.active = False
+        self.stage.completed = False
+        self.movement_pickups.clear()
         enter_hub(self)
         self.events.emit("run_started")
+
+    def spawn_prefab(self, prefab_id, **overrides):
+        return self.prefabs.spawn_prefab(prefab_id, **overrides)
 
     def open_perk_select_if_needed(self):
         if self.player.pending_level_ups > 0 and self.state in (GameState.HUB, GameState.ROOM, GameState.BOSS):
             self.previous_state = self.state
-            options = self.perks.roll_options(self.player)
+            if getattr(self.player, "perk_choices_made", 0) == 0:
+                options = self.perks.roll_starter_options(self.player)
+            else:
+                options = self.perks.roll_options(self.player)
             if not options:
                 self.player.consume_pending_level_up()
                 self.message = "All perk cards are maxed."
@@ -218,16 +291,25 @@ class Game:
             self.perk_input_lock = 0.25
 
     def open_room_exit(self):
+        if self.room_exit_open:
+            return
         exit_center = pygame.Vector2(self.player.rect.center) + pygame.Vector2(165, 0)
         half_w = self.room_exit_rect.width // 2
         half_h = self.room_exit_rect.height // 2
-        exit_center.x = max(half_w, min(MAP_SIZE - half_w, exit_center.x))
-        exit_center.y = max(half_h, min(MAP_SIZE - half_h, exit_center.y))
+        bounds = current_room_bounds()
+        exit_center.x = max(bounds.left + half_w, min(bounds.right - half_w, exit_center.x))
+        exit_center.y = max(bounds.top + half_h, min(bounds.bottom - half_h, exit_center.y))
         self.room_exit_rect.center = (round(exit_center.x), round(exit_center.y))
         self.room_exit_open = True
+        clear_time = self.room_flow.mark_room_clear(self.rooms.room_time)
         self.events.emit("room_cleared")
+        self.events.emit("room_clear_time", {"room_number": self.room_number, "room_time": clear_time})
+        self.audio.play("portal_open")
+        self.feel.room_clear()
+        room_xp = award_room_completion_xp(self, self.room_exit_rect.center)
         self.effects.ring(self.room_exit_rect.center, radius=170, life=0.9, width=6)
-        self.message = "Room cleared. Exit portal opened. Press E near it."
+        reward_text = f" +{room_xp} room XP." if room_xp else ""
+        self.message = f"Room cleared in {clear_time:.1f}s.{reward_text} Exit portal opened. Press E near it."
         self.show_wave_notice("EXIT PORTAL OPEN")
 
         if DEBUG_ROOM_FLOW:
@@ -235,6 +317,15 @@ class Game:
             if snapshot != self._last_exit_debug:
                 self._last_exit_debug = snapshot
                 print("[EXIT OPEN]", self.room_exit_open, self.room_exit_rect, self.player.rect.center, self.camera.offset)
+
+    def complete_boss_encounter(self):
+        if self.room_number > ROOMS_TO_BOSS:
+            self.state = GameState.WIN
+            self.music.stop_music(fade_ms=1200)
+        else:
+            self.room_number += 1
+            self.message = "Boss defeated."
+            enter_hub(self)
 
     def show_wave_notice(self, text):
         self.wave_notice_text = text
@@ -283,6 +374,61 @@ class Game:
         text = notice_font.render(self.wave_notice_text, True, (255, 210, 60))
         text_rect = text.get_rect(center=panel_rect.center)
         self.screen.blit(text, text_rect)
+
+    def update_movement_pickups(self, dt):
+        kept = []
+        for pickup in getattr(self, "movement_pickups", []):
+            if not pickup.get("alive", False):
+                pickup["respawn_timer"] = max(0.0, pickup.get("respawn_timer", 0.0) - dt)
+                if pickup["respawn_timer"] <= 0.0:
+                    pickup["rect"] = pickup.get("spawn_rect", pickup["rect"]).copy()
+                    pickup["alive"] = True
+                kept.append(pickup)
+                continue
+            if self.player.rect.colliderect(pickup["rect"]):
+                if pickup["type"] == "dash_refresh":
+                    self.player.dash_cooldown_timer = 0.0
+                    self.player.ghost_timer = max(getattr(self.player, "ghost_timer", 0.0), pickup.get("duration", 1.8))
+                    self.effects.ring(pickup["rect"].center, color=(80, 220, 255), radius=42, life=0.22, width=4)
+                    self.effects.message("DASH REFRESH", pickup["rect"].midtop)
+                    self.message = "Movement charge: Dash refreshed and speed boosted briefly."
+                pickup["alive"] = False
+                pickup["respawn_timer"] = pickup.get("respawn_delay", 12.0)
+                kept.append(pickup)
+                continue
+            kept.append(pickup)
+        self.movement_pickups = kept
+
+    def draw_movement_pickups(self):
+        for pickup in getattr(self, "movement_pickups", []):
+            if not pickup.get("alive", False):
+                remaining = pickup.get("respawn_timer", 0.0)
+                if remaining > 3.0:
+                    continue
+                base_rect = self.camera.apply_rect(pickup.get("spawn_rect", pickup["rect"]))
+                progress = max(0.0, min(1.0, 1.0 - remaining / 3.0))
+                radius = max(5, round(20 * progress))
+                alpha = round(55 + 165 * progress)
+                glow = pygame.Surface((72, 72), pygame.SRCALPHA)
+                pygame.draw.circle(glow, (80, 220, 255, alpha), (36, 36), radius, max(2, round(4 * progress)))
+                pygame.draw.circle(glow, (230, 255, 255, max(30, alpha - 30)), (36, 36), max(3, radius // 2), 2)
+                self.screen.blit(glow, (base_rect.centerx - 36, base_rect.centery - 36))
+                continue
+            rect = self.camera.apply_rect(pickup["rect"])
+            pulse = 1.0 + 0.16 * abs(math.sin(pygame.time.get_ticks() * 0.012))
+            pygame.draw.circle(self.screen, (80, 220, 255), rect.center, round(21 * pulse), 3)
+            pygame.draw.circle(self.screen, (80, 220, 255), rect.center, 18)
+            pygame.draw.circle(self.screen, (230, 255, 255), rect.center, 10)
+            pygame.draw.circle(self.screen, (20, 80, 120), rect.center, 20, 3)
+
+    def draw_player_ghost_aura(self):
+        if getattr(self.player, "ghost_timer", 0.0) <= 0:
+            return
+        center = self.camera.apply_pos(pygame.Vector2(self.player.rect.center))
+        pulse = 1.0 + 0.18 * abs(math.sin(pygame.time.get_ticks() * 0.018))
+        radius = round(42 * pulse)
+        pygame.draw.circle(self.screen, (80, 220, 255), (round(center.x), round(center.y)), radius, 4)
+        pygame.draw.circle(self.screen, (210, 255, 255), (round(center.x), round(center.y)), radius + 9, 2)
 
     def resolve_enemy_crowding(self):
         enemies = [
@@ -367,14 +513,15 @@ class Game:
                 enemy.rect.x += round(push.x)
                 enemy.rect.y += round(push.y)
     
-            enemy.rect.clamp_ip(pygame.Rect(0, 0, MAP_SIZE, MAP_SIZE))
+            enemy.rect.clamp_ip(current_room_rect())
 
     def respawn_distant_enemies(self):
         if self.state not in (GameState.ROOM, GameState.BOSS):
             return
 
         player_pos = pygame.Vector2(self.player.rect.center)
-        screen_margin = 560
+        screen_margin = 900
+        lost_enemy_distance = 1800
         screen_rect = pygame.Rect(
             -screen_margin,
             -screen_margin,
@@ -390,37 +537,171 @@ class Game:
 
             enemy_pos = pygame.Vector2(enemy.rect.center)
             screen_pos = self.camera.apply_pos(enemy_pos)
+            
             if screen_rect.collidepoint(round(screen_pos.x), round(screen_pos.y)):
                 continue
 
             distance = enemy_pos.distance_to(player_pos)
-            if type_name in ("RANGED", "HUNTER", "ELITE"):
-                min_distance = 1280
-                spawn_radius = random.randint(620, 820)
+            if type_name.startswith("RANGED") or type_name in ("HUNTER", "ELITE"):
+                min_distance = max(lost_enemy_distance, ENEMY_RESPAWN_SAFE_RADIUS + 260)
             else:
-                min_distance = 920
-                spawn_radius = random.randint(420, 640)
+                min_distance = lost_enemy_distance
 
             if distance < min_distance:
                 continue
 
-            velocity = pygame.Vector2(self.player.velocity)
-            if velocity.length_squared() > 0 and random.random() < 0.62:
-                base_angle = velocity.as_polar()[1] + random.uniform(-75, 75)
-            else:
-                base_angle = random.uniform(0, 360)
-
-            offset = pygame.Vector2(spawn_radius, 0).rotate(base_angle)
-            new_pos = player_pos + offset
-            half_w = enemy.rect.width // 2
-            half_h = enemy.rect.height // 2
-            new_pos.x = max(half_w, min(MAP_SIZE - half_w, new_pos.x))
-            new_pos.y = max(half_h, min(MAP_SIZE - half_h, new_pos.y))
-            enemy.rect.center = (round(new_pos.x), round(new_pos.y))
+            new_x, new_y = self.spawn.get_spawn_position(self.camera, self.player.rect)
+            enemy.rect.topleft = (round(new_x), round(new_y))
             enemy.last_player_center = None
             enemy.leap_timer = 0.0
             enemy.windup_timer = 0.0
 
+
+    def apply_player_skill(self, skill):
+        radius = 82 if skill != "blast" else BLAST_RADIUS
+        self.effects.ring(self.player.rect.center, radius=radius, life=0.28, width=8 if skill == "blast" else 4)
+        if skill == "blast":
+            center = pygame.Vector2(self.player.rect.center)
+            for enemy in self.enemies:
+                if not enemy.alive or getattr(enemy, "type", None) == EnemyType.BOSS:
+                    continue
+                offset = pygame.Vector2(enemy.rect.center) - center
+                dist = offset.length()
+                if 1 <= dist <= BLAST_RADIUS:
+                    push = offset.normalize() * (BLAST_FORCE * (1.0 - dist / (BLAST_RADIUS * 1.25)))
+                    enemy.rect.x += round(push.x)
+                    enemy.rect.y += round(push.y)
+                    enemy.rect.clamp_ip(current_room_rect())
+            self.message = "Blast skill pushed nearby enemies."
+        elif skill == "surge":
+            self.message = "Surge active: damage and fire rate boosted."
+        elif skill == "ghost":
+            self.message = "Ghost active: fast and invulnerable."
+        else:
+            self.message = "Dash."
+
+    def enemy_reward_values(self, enemy, reward_multiplier=None):
+        from systems.combat_system import (
+            ENEMY_XP_REWARD,
+            ENEMY_GOLD_REWARD,
+            LOOT_HIT_GOLD_REWARD,
+            LOOT_HIT_XP_REWARD,
+            LOOT_ESCAPE_KILL_BONUS_MULTIPLIER,
+        )
+
+        if reward_multiplier is None:
+            reward_multiplier = self.rooms.reward_multiplier if self.state == GameState.ROOM else 1
+
+        if getattr(enemy, "type", None) == EnemyType.LOOT:
+            return (
+                LOOT_HIT_GOLD_REWARD * LOOT_ESCAPE_KILL_BONUS_MULTIPLIER,
+                LOOT_HIT_XP_REWARD * LOOT_ESCAPE_KILL_BONUS_MULTIPLIER,
+            )
+
+        gold = ENEMY_GOLD_REWARD * reward_multiplier
+        xp = ENEMY_XP_REWARD * reward_multiplier
+        if getattr(enemy, "type", None) == EnemyType.ELITE:
+            gold *= 6
+            xp *= 5
+        return gold, xp
+
+    def spawn_enemy_reward_drops(self, enemy):
+        if getattr(enemy, "type", None) == EnemyType.BOSS:
+            return
+        gold, xp = self.enemy_reward_values(enemy)
+        self.loot.spawn_enemy_rewards(enemy.rect.center, gold, xp)
+
+    def apply_melee_attack(self, attack):
+        origin = pygame.Vector2(attack["origin"])
+        direction = attack["direction"]
+
+        if direction.length_squared() == 0:
+            direction = pygame.Vector2(1, 0)
+
+        direction = direction.normalize()
+
+        damage = attack["damage"]
+        attack_range = attack["range"]
+        arc = attack.get("arc_degrees", 0) / 2
+        knockback = attack["knockback"]
+        kills = 0
+
+        if self.player:
+            if attack["type"] == "melee_rect":
+                self.player.trigger_sword_attack()
+            else:
+                self.player.trigger_knife_attack()
+
+        for enemy in self.enemies:
+            if not enemy.alive:
+                continue
+
+            if attack["type"] == "melee_rect":
+                if not self._enemy_in_melee_rect(enemy, origin, direction, attack):
+                    continue
+            elif not self._enemy_in_melee_arc(enemy, origin, direction, attack_range, arc):
+                continue
+
+            killed = enemy.take_damage(damage)
+            if self.feel:
+                self.feel.normal_hit()
+
+            enemy.rect.x += round(direction.x * knockback)
+            enemy.rect.y += round(direction.y * knockback)
+            enemy.rect.clamp_ip(current_room_rect())
+
+            if self.effects:
+                self.effects.damage_number(damage, enemy.rect.midtop, critical=False)
+                self.effects.ring(enemy.rect.center, radius=34, life=0.16, width=2)
+
+            if self.audio:
+                self.audio.play("hit")
+
+            if killed:
+                kills += 1
+                self.spawn_enemy_reward_drops(enemy)
+                if getattr(enemy, "type", None) == EnemyType.ELITE:
+                    self.feel.elite_kill()
+                else:
+                    self.feel.enemy_kill()
+                owner_id = id(enemy)
+                for bullet in self.enemy_bullets:
+                    if getattr(bullet, "owner_id", None) == owner_id:
+                        bullet.kill()
+                if self.audio:
+                    self.audio.play("enemy_death")
+
+        if kills:
+            self.room_kills += kills
+            self.total_kills += kills
+
+    def _enemy_in_melee_arc(self, enemy, origin, direction, attack_range, arc):
+        to_enemy = pygame.Vector2(enemy.rect.center) - origin
+        distance = to_enemy.length()
+
+        if distance <= 0:
+            return False
+
+        if distance > attack_range + max(enemy.rect.width, enemy.rect.height) / 2:
+            return False
+
+        enemy_dir = to_enemy.normalize()
+        angle = direction.angle_to(enemy_dir)
+        return abs(angle) <= arc
+
+    def _enemy_in_melee_rect(self, enemy, origin, direction, attack):
+        to_enemy = pygame.Vector2(enemy.rect.center) - origin
+        forward = to_enemy.dot(direction)
+        radius = max(enemy.rect.width, enemy.rect.height) / 2
+        length = attack.get("length") or attack.get("range") or 0
+        width = attack.get("width") or 0
+
+        if forward < -radius or forward > length + radius:
+            return False
+
+        side = pygame.Vector2(-direction.y, direction.x)
+        lateral = abs(to_enemy.dot(side))
+        return lateral <= (width / 2) + radius
 
     def update_treasure_room(self):
         if self.state != GameState.ROOM or self.rooms.room_type != RoomType.TREASURE:
@@ -442,253 +723,345 @@ class Game:
             self.open_room_exit()
 
     def update(self, dt):
-        if self.perk_input_lock > 0:
-            self.perk_input_lock = max(0, self.perk_input_lock - dt)
+        with self.profiler.section("game update"):
+            if self.perk_input_lock > 0:
+                self.perk_input_lock = max(0, self.perk_input_lock - dt)
 
-        if self.wave_notice_timer > 0:
-            self.wave_notice_timer = max(0, self.wave_notice_timer - dt)
-            if self.wave_notice_timer == 0:
-                self.wave_notice_text = ""
+            if self.wave_notice_timer > 0:
+                self.wave_notice_timer = max(0, self.wave_notice_timer - dt)
+                if self.wave_notice_timer == 0:
+                    self.wave_notice_text = ""
 
-        if self.state not in (GameState.HUB, GameState.ROOM, GameState.BOSS):
-            if self.state == GameState.PERK_SELECT:
-                self.effects.update(dt)
-            return
+            if self.state not in (GameState.HUB, GameState.ROOM, GameState.BOSS):
+                if self.state == GameState.PERK_SELECT:
+                    self.effects.update(dt)
+                return
 
-        self.shooting.update(dt)
-        self.player.handle_movement_input()
-        update_player_aim(self.player, self.enemies, self.camera, self.game_mouse_pos())
+            self.room_flow.update_run_timer(dt)
 
-        self.player.update(dt, self.collision.get_colliders())
+            self.shooting.update(dt)
+            self.player.handle_movement_input()
+            update_player_aim(self.player, self.enemies, self.camera, self.game_mouse_pos())
 
-        if pygame.mouse.get_pressed()[0]:
-            did_shoot = self.shooting.try_shoot(self.player, self.projectiles, self.audio)
-            if did_shoot:
-                self.events.emit("player_shoot", {
-                    "player": self.player
-                })
+            with self.profiler.section("player update"):
+                self.player.update(dt, self.collision.get_colliders())
 
-        if self.state == GameState.ROOM:
-            self.rooms.update(dt)
-            spawned_enemies = self.waves.update(
+            if pygame.mouse.get_pressed()[0]:
+                attack = self.player.try_weapon_attack()
+
+                if attack is None:
+                    pass
+                elif attack["type"] == "projectile":
+                    did_shoot = self.shooting.try_shoot(self.player, self.projectiles, self.audio)
+                    if did_shoot:
+                        self.events.emit("player_shoot", {"player": self.player})
+
+                elif attack["type"] == "melee_arc":
+                    self.apply_melee_attack(attack)
+                elif attack["type"] == "melee_rect":
+                    self.apply_melee_attack(attack)
+
+            if self.state == GameState.ROOM:
+                if self.prototype_room.active:
+                    self.prototype_room.update(dt)
+                else:
+                    room_dt, countdown_finished = self.room_flow.advance_countdown(dt)
+                    if countdown_finished:
+                        self.show_wave_notice("GO")
+
+                    if self.room_flow.room_can_advance():
+                        self.rooms.update(room_dt)
+                        spawned_enemies = self.waves.update(
+                            room_dt,
+                            lambda: self.spawn.get_spawn_position(self.camera, self.player.rect),
+                            len(self.enemies),
+                            self.enemy_pool.acquire,
+                            living_enemies=self.enemies,
+                            player_rect=self.player.rect,
+                        )
+                        if spawned_enemies:
+                            self.enemies.extend(spawned_enemies)
+                        wave_message = self.waves.consume_wave_message()
+                        if wave_message:
+                            self.show_wave_notice(wave_message)
+                            if "cleared" in wave_message.lower():
+                                self.audio.play("wave_clear")
+                            else:
+                                self.audio.play("wave_start")
+                        self.update_treasure_room()
+
+            self.respawn_distant_enemies()
+
+            with self.profiler.section("enemy update"):
+                if getattr(self.horde, "enabled", False):
+                    self.horde.update_enemies(self, dt, self.combat_actions.handle)
+                else:
+                    for enemy in self.enemies:
+                        previous_phase = getattr(enemy, "phase", None) if getattr(enemy, "type", None) == EnemyType.BOSS else None
+                        action = enemy.update(dt, self.player.rect, self.collision.get_colliders())
+                        current_phase = getattr(enemy, "phase", None) if getattr(enemy, "type", None) == EnemyType.BOSS else None
+                        if previous_phase is not None and current_phase is not None and current_phase != previous_phase:
+                            self.events.emit("boss_phase_changed", {"enemy": enemy, "phase": current_phase})
+                            self.feel.boss_phase()
+                        if not action:
+                            continue
+                        self.combat_actions.handle(action, self)
+
+                self.resolve_enemy_crowding()
+
+            for p in self.projectiles:
+                p.update(dt)
+            for b in self.enemy_bullets:
+                b.update(dt)
+
+            reward_multiplier = self.rooms.reward_multiplier if self.state == GameState.ROOM else 1
+            spatial_grid = self.horde.rebuild_spatial_grid(self.enemies) if getattr(self.horde, "enabled", False) else None
+            combat_start = perf_counter()
+            kills, boss_killed = self.combat.update(
                 dt,
-                lambda: self.spawn.get_spawn_position(self.camera),
-                len(self.enemies),
+                self.player,
+                self.projectiles,
+                self.enemies,
+                self.enemy_bullets,
+                effects=self.effects,
+                audio=self.audio,
+                reward_multiplier=reward_multiplier,
+                enemy_factory=self.enemy_pool.acquire,
+                loot_system=self.loot,
+                feel=self.feel,
+                spatial_grid=spatial_grid,
             )
-            if spawned_enemies:
-                self.enemies.extend(spawned_enemies)
-            wave_message = self.waves.consume_wave_message()
-            if wave_message:
-                self.show_wave_notice(wave_message)
-            self.update_treasure_room()
+            if getattr(self.horde, "enabled", False):
+                self.horde.set_combat_ms((perf_counter() - combat_start) * 1000.0)
+                self.horde.update_debug_metrics(self)
 
-        self.respawn_distant_enemies()
+            if kills:
+                self.room_kills += kills
+                self.total_kills += kills
 
-        for enemy in self.enemies:
-            action = enemy.update(dt, self.player.rect)
-            if not action:
-                continue
-            if action["type"] == "enemy_shoot":
-                base_damage = int(ENEMY_BULLET_DAMAGE * action.get("damage_multiplier", 1.0))
-                speed = 410 + int(action.get("difficulty", 1.0) * 12)
-                for angle, damage_scale in [(-28, 0.65), (-14, 0.85), (0, 1.0), (14, 0.85), (28, 0.65)]:
-                    damage = max(1, int(base_damage * damage_scale))
-                    self.enemy_bullets.append(EnemyBullet(action["x"], action["y"], rotate_vector(action["direction"], angle), damage, speed=speed, owner_id=action.get("owner_id")))
-            elif action["type"] == "elite_burst":
-                difficulty = action.get("difficulty", 1.0)
-                base_damage = int((ENEMY_BULLET_DAMAGE + 2) * action.get("damage_multiplier", 1.0))
-                fan_speed = 470 + int(difficulty * 16)
-                ring_speed = 330 + int(difficulty * 10)
-                for angle, damage_scale in [(-34, 0.75), (-18, 0.9), (0, 1.0), (18, 0.9), (34, 0.75)]:
-                    damage = max(1, int(base_damage * damage_scale))
-                    self.enemy_bullets.append(EnemyBullet(action["x"], action["y"], rotate_vector(action["direction"], angle), damage, speed=fan_speed, owner_id=action.get("owner_id")))
-                for angle in range(0, 360, 60):
-                    damage = max(1, int(base_damage * 0.55))
-                    self.enemy_bullets.append(EnemyBullet(action["x"], action["y"], rotate_vector(action["direction"], angle), damage, speed=ring_speed, owner_id=action.get("owner_id")))
-            elif action["type"] == "hunter_homing":
-                damage = int((ENEMY_BULLET_DAMAGE + 1) * action.get("damage_multiplier", 1.0))
-                speed = 330 + int(action.get("difficulty", 1.0) * 12)
-                self.enemy_bullets.append(EnemyBullet(action["x"], action["y"], action["direction"], damage, speed=speed, homing_target=self.player, turn_rate=1.55, owner_id=action.get("owner_id")))
-            elif action["type"] in ("boss_cone", "boss_ring", "boss_summon_leap"):
-                self.boss_attacks.handle_action(
-                        action,
-                        self.enemies,
-                        self.enemy_bullets,
-                        self.effects,
-                        self.audio,
-                        player=self.player
-                    )
+            self.projectiles = [p for p in self.projectiles if p.alive]
+            self.enemy_bullets = [b for b in self.enemy_bullets if b.alive]
+            dead_enemies = [e for e in self.enemies if not e.alive]
+            self.enemy_pool.release_many(dead_enemies)
+            self.enemies = [e for e in self.enemies if e.alive]
 
-        self.resolve_enemy_crowding()
+            with self.profiler.section("pickups update"):
+                self.loot.update(dt, self.player, effects=self.effects, audio=self.audio)
+                self.update_movement_pickups(dt)
+            self.effects.update(dt)
+            self.camera.follow(self.player.rect, self.player.velocity, dt)
 
-        for p in self.projectiles:
-            p.update(dt)
-        for b in self.enemy_bullets:
-            b.update(dt)
+            if self.player.is_dead():
+                self.state = GameState.GAME_OVER
+                self.music.stop_music(fade_ms=900)
+                return
 
-        reward_multiplier = self.rooms.reward_multiplier if self.state == GameState.ROOM else 1
-        kills, boss_killed = self.combat.update(
-            dt,
-            self.player,
-            self.projectiles,
-            self.enemies,
-            self.enemy_bullets,
-            effects=self.effects,
-            audio=self.audio,
-            reward_multiplier=reward_multiplier,
-        )
+            if (
+                self.state == GameState.ROOM
+                and not self.room_exit_open
+                and not self.prototype_room.active
+                and self.waves.all_waves_spawned()
+                and len(self.enemies) == 0
+            ):
+                self.open_room_exit()
+                return
 
-        if kills:
-            self.room_kills += kills
-            self.total_kills += kills
+            if self.prototype_room.ready_to_clear():
+                self.prototype_room.open_exit()
+                return
 
-        self.projectiles = [p for p in self.projectiles if p.alive]
-        self.enemy_bullets = [b for b in self.enemy_bullets if b.alive]
-        self.enemies = [e for e in self.enemies if e.alive]
+            if self.state == GameState.BOSS and boss_killed:
+                self.audio.play("boss_death")
+                self.complete_boss_encounter()
+                return
 
-        self.effects.update(dt)
-        self.camera.follow(self.player.rect, self.player.velocity, dt)
-
-        if self.player.is_dead():
-            self.state = GameState.GAME_OVER
-            return
-
-        if (
-            self.state == GameState.ROOM
-            and not self.room_exit_open
-            and self.waves.all_waves_spawned()
-            and len(self.enemies) == 0
-        ):
-            self.open_room_exit()
-            return
-
-        if self.state == GameState.BOSS and boss_killed:
-            if self.room_number > ROOMS_TO_BOSS:
-                self.state = GameState.WIN
-            else:
-                self.room_number += 1
-                self.message = "Boss defeated. Stage 2 opened."
-                enter_hub(self)
-            return
-
-        self.open_perk_select_if_needed()
+            self.open_perk_select_if_needed()
 
     def draw(self):
+        draw_start = perf_counter()
+        with self.profiler.section("draw total"):
+            self.camera.render_offset = self.feel.shake_offset
 
-        if self.state == GameState.MENU:
-            draw_menu(self.screen, self)
+            if self.state == GameState.MENU:
+                draw_menu(self.screen, self)
 
-        elif self.state == GameState.PERK_SELECT:
-            self.perk_card_rects = draw_perk_select(
-                self.screen,
-                self.big_font,
-                self.font,
-                self.perks.current_options,
-                self.game_mouse_pos(),
-            )
+            elif self.state == GameState.PERK_SELECT:
+                self.perk_card_rects, self.perk_reroll_rects = draw_perk_select(
+                    self.screen,
+                    self.big_font,
+                    self.font,
+                    self.perks.current_options,
+                    self.game_mouse_pos(),
+                    self.perks.reroll_labels(self.player),
+                    self.player,
+                )
 
-        elif self.state in (GameState.HUB, GameState.ROOM, GameState.BOSS):
-            draw_world_background(self.screen, self.camera, hub=self.state == GameState.HUB, room_type=self.rooms.room_type)
+            elif self.state in (GameState.HUB, GameState.ROOM, GameState.BOSS):
+                with self.profiler.section("world draw"):
+                    draw_world_background(self.screen, self.camera, hub=self.state == GameState.HUB, room_type=self.rooms.room_type, profiler=self.profiler)
 
-            if self.state == GameState.HUB:
-                pygame.draw.rect(self.screen, (60, 60, 60), self.camera.apply_rect(self.portal_rect), border_radius=10)
-                for npc in self.npcs:
-                    npc.draw(self.screen, self.camera)
+                    if getattr(self, "room_obstacles", None):
+                        with self.profiler.section("props/environment draw"):
+                            draw_room_obstacles(self.screen, self.camera, self.room_obstacles)
+                    self.draw_movement_pickups()
 
-            for enemy in self.enemies:
-                enemy.draw(self.screen, self.camera)
-            for p in self.projectiles:
-                p.draw(self.screen, self.camera)
-            for b in self.enemy_bullets:
-                b.draw(self.screen, self.camera)
+                    if self.state == GameState.HUB:
+                        with self.profiler.section("hub portal draw"):
+                            pygame.draw.rect(self.screen, (60, 60, 60), self.camera.apply_rect(self.portal_rect), border_radius=10)
+                        with self.profiler.section("npc draw"):
+                            for npc in self.npcs:
+                                npc.draw(self.screen, self.camera)
 
-            self.player.draw(self.screen, self.camera)
-            self.effects.draw(self.screen, self.camera, self.font)
-            if self.state == GameState.ROOM:
-                self.draw_exit_portal()
+                with self.profiler.section("enemy draw"):
+                    if self.state == GameState.ROOM:
+                        self.prototype_room.draw_telegraphs(self.screen, self.camera, self.font)
+                    for enemy in self.enemies:
+                        enemy.draw(self.screen, self.camera)
+                with self.profiler.section("projectile draw"):
+                    for p in self.projectiles:
+                        p.draw(self.screen, self.camera)
+                    for b in self.enemy_bullets:
+                        b.draw(self.screen, self.camera)
 
-            room_target = self.rooms.target_kills
-            objective_label = "Kills"
-            if self.state == GameState.BOSS and self.enemies:
-                boss = self.enemies[0]
-                room_target = boss.max_health
-                shown_kills = boss.health
-                objective_label = "Boss HP"
-            elif self.rooms.room_type == RoomType.SURVIVAL:
-                room_target = self.rooms.target_kills
-                shown_kills = self.room_kills
-                objective_label = "Horde"
-            elif self.rooms.room_type == RoomType.TREASURE:
-                room_target = 1
-                shown_kills = 1
-                objective_label = "Reward"
-            else:
-                shown_kills = self.room_kills
+                with self.profiler.section("pickups draw"):
+                    self.loot.draw(self.screen, self.camera)
+                with self.profiler.section("player draw"):
+                    self.draw_player_ghost_aura()
+                    self.player.draw(self.screen, self.camera)
+                with self.profiler.section("effects draw"):
+                    self.effects.draw(self.screen, self.camera, self.font)
+                if self.state == GameState.ROOM:
+                    with self.profiler.section("portal draw"):
+                        self.prototype_room.draw_stage_doors(self.screen, self.camera, self.font)
+                        self.draw_exit_portal()
 
-            draw_hud(
-                self.screen,
-                self.font,
-                self.player,
-                min(self.room_number, ROOMS_TO_BOSS),
-                shown_kills,
-                room_target,
-                len(self.enemies),
-                self.state.name,
-                self.rooms.display_name() if self.state == GameState.ROOM else "",
-                self.rooms.room_time,
-                objective_label,
-            )
-            if self.state == GameState.ROOM:
-                draw_room_banner(self.screen, self.big_font, self.font, self.rooms)
+                with self.profiler.section("ui draw"):
+                    room_target = self.rooms.target_kills
+                    objective_label = "Kills"
+                    if self.state == GameState.BOSS and self.enemies:
+                        boss = self.enemies[0]
+                        room_target = boss.max_health
+                        shown_kills = boss.health
+                        objective_label = "Boss HP"
+                    elif self.rooms.room_type == RoomType.SURVIVAL:
+                        room_target = self.rooms.target_kills
+                        shown_kills = self.room_kills
+                        objective_label = "Horde"
+                    elif self.rooms.room_type == RoomType.TREASURE:
+                        room_target = 1
+                        shown_kills = 1
+                        objective_label = "Reward"
+                    else:
+                        shown_kills = self.room_kills
 
-            npc = nearest_npc(self.player, self.npcs) if self.state == GameState.HUB else None
-            if npc:
-                pos = self.camera.apply_pos(pygame.Vector2(npc.rect.centerx, npc.rect.top - 26))
-                hint = "Press E to enter dungeon" if npc.role == "portal" else "Press E to talk"
-                hint_surf = self.font.render(hint, True, (255, 235, 120))
-                hint_bg = pygame.Surface((hint_surf.get_width() + 18, hint_surf.get_height() + 10), pygame.SRCALPHA)
-                hint_bg.fill((0, 0, 0, 175))
-                hint_rect = hint_bg.get_rect(center=(round(pos.x), round(pos.y)))
-                self.screen.blit(hint_bg, hint_rect)
-                self.screen.blit(hint_surf, hint_surf.get_rect(center=hint_rect.center))
-            if npc and npc.role in ("blacksmith", "healer"):
-                draw_shop_hint(self.screen, self.font, npc.role, self.upgrades, player_gold=self.player.gold)
+                    stage = getattr(self, "stage", None)
+                    room_total = len(stage.rooms) if getattr(stage, "active", False) else ROOMS_TO_BOSS
+                    draw_hud(
+                        self.screen,
+                        self.font,
+                        self.player,
+                        min(self.room_number, ROOMS_TO_BOSS),
+                        shown_kills,
+                        room_target,
+                        len(self.enemies),
+                        self.state.name,
+                        self.rooms.display_name() if self.state == GameState.ROOM else "",
+                        self.rooms.room_time,
+                        objective_label,
+                        self.room_flow.run_time,
+                        room_total,
+                    )
+                    if self.state == GameState.ROOM:
+                        draw_room_banner(self.screen, self.big_font, self.font, self.rooms)
+                    draw_minimap(self.screen, self.player, self.enemies, getattr(self, "room_obstacles", []), stage=stage)
 
-            if self.message:
-                txt = self.font.render(self.message, True, BLACK)
-                self.screen.blit(txt, (22, SCREEN_HEIGHT - 34))
+                    npc = nearest_npc(self.player, self.npcs) if self.state == GameState.HUB else None
+                    if npc:
+                        pos = self.camera.apply_pos(pygame.Vector2(npc.rect.centerx, npc.rect.top - 26))
+                        hint = "Press E to enter dungeon" if npc.role == "portal" else "Press E to talk"
+                        hint_surf = self.font.render(hint, True, (255, 235, 120))
+                        hint_bg = pygame.Surface((hint_surf.get_width() + 18, hint_surf.get_height() + 10), pygame.SRCALPHA)
+                        hint_bg.fill((0, 0, 0, 175))
+                        hint_rect = hint_bg.get_rect(center=(round(pos.x), round(pos.y)))
+                        self.screen.blit(hint_bg, hint_rect)
+                        self.screen.blit(hint_surf, hint_surf.get_rect(center=hint_rect.center))
+                    if npc and npc.role in ("blacksmith", "healer"):
+                        draw_shop_hint(self.screen, self.font, npc.role, self.upgrades, player_gold=self.player.gold)
 
-            self.dialogue.draw(self.screen)
-            if self.state == GameState.ROOM:
-                self.draw_wave_notice()
+                    if self.message:
+                        txt = self.font.render(self.message, True, BLACK)
+                        self.screen.blit(txt, (22, SCREEN_HEIGHT - 34))
+
+                    self.dialogue.draw(self.screen)
+                    if self.state == GameState.ROOM:
+                        self.draw_wave_notice()
+                        self.draw_room_countdown()
+
+                with self.profiler.section("devtools draw"):
+                    self.dev_panel.draw(self.screen)
         
-        elif self.state == GameState.PAUSED:
-            draw_world_background(
-                self.screen,
-                self.camera,
-                hub=self.previous_state == GameState.HUB,
-                room_type=self.rooms.room_type,
-            )
-            self.player.draw(self.screen, self.camera)
-            self.pause_sliders = draw_pause_menu(self.screen, self.big_font, self.font)
+            elif self.state == GameState.PAUSED:
+                draw_world_background(
+                    self.screen,
+                    self.camera,
+                    hub=self.previous_state == GameState.HUB,
+                    room_type=self.rooms.room_type,
+                )
+                self.player.draw(self.screen, self.camera)
+                self.pause_sliders = draw_pause_menu(self.screen, self.big_font, self.font)
+                self.dev_panel.draw(self.screen)
 
-        elif self.state == GameState.GAME_OVER:
-            draw_end_screen(self.screen, self.big_font, self.font, "GAME OVER", f"Rooms reached: {self.room_number} | Total kills: {self.total_kills}")
+            elif self.state == GameState.GAME_OVER:
+                draw_end_screen(self.screen, self.big_font, self.font, "GAME OVER", f"Rooms reached: {self.room_number} | Total kills: {self.total_kills}")
 
-        elif self.state == GameState.WIN:
-            draw_end_screen(self.screen, self.big_font, self.font, "BOSS DEFEATED", f"Level {self.player.level} | Gold {self.player.gold} | Kills {self.total_kills}")
+            elif self.state == GameState.WIN:
+                draw_end_screen(self.screen, self.big_font, self.font, "BOSS DEFEATED", f"Level {self.player.level} | Gold {self.player.gold} | Kills {self.total_kills}")
 
-        if self.state != GameState.MENU:
-            self.crosshair.draw(self.screen, self.game_mouse_pos())
-        self.present()
+            if self.state != GameState.MENU:
+                self.crosshair.draw(self.screen, self.game_mouse_pos())
+            if self.state == GameState.MENU:
+                self.dev_panel.draw(self.screen)
+        with self.profiler.section("present"):
+            self.present()
+        if getattr(self.horde, "enabled", False):
+            self.horde.set_draw_ms((perf_counter() - draw_start) * 1000.0)
+        self.camera.render_offset.update(0, 0)
+
+    def draw_room_countdown(self):
+        label = self.room_flow.countdown_label()
+        if not label:
+            return
+        text = self.big_font.render(label, True, (255, 235, 120))
+        shadow = self.big_font.render(label, True, (20, 20, 30))
+        rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 80))
+        self.screen.blit(shadow, (rect.x + 3, rect.y + 3))
+        self.screen.blit(text, rect)
 
     def run(self):
         while True:
+            self.profiler.begin_frame()
             pygame.mouse.set_visible(self.state == GameState.MENU)
             dt = self.clock.tick(FPS) / 1000.0
-            self.input.handle_events(self)
-            self.update(dt)
+            with self.profiler.section("input/events"):
+                self.input.handle_events(self)
+            with self.profiler.section("feel/audio triggers"):
+                self.feel.update(dt)
+            gameplay_dt = dt * self.dev_tools.time_scale
+            if not self.dev_tools.author_mode and not self.feel.gameplay_paused():
+                self.update(gameplay_dt)
+            if DEV_TOOLS_ENABLED:
+                with self.profiler.section("wave designer update"):
+                    self.wave_designer.update()
+                with self.profiler.section("devtools update"):
+                    self.dev_tools.update(gameplay_dt)
             self.draw()
+            self.profiler.end_frame(
+                state=self.state.name,
+                enemies=len(self.enemies),
+                projectiles=len(self.projectiles) + len(self.enemy_bullets),
+                pickups=len(getattr(self.loot, "pickups", [])),
+                effects=len(getattr(self.effects, "floating_texts", [])) + len(getattr(self.effects, "rings", [])),
+            )
 
     def quit(self):
         pygame.quit()

@@ -28,6 +28,9 @@ class InputSystem:
 
             event = game.translate_event(event)
 
+            if game.dev_panel.handle_event(event):
+                continue
+
             if game.state == GameState.PERK_SELECT:
                 handle_perk_select_events(game, event)
                 continue

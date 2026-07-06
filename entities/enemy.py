@@ -20,16 +20,31 @@ from settings import (
     JUMPER_ATTACK_COOLDOWN,
     BOSS_HEALTH,
     BOSS_SPEED,
-    MAP_SIZE,
     GOLD,
     YELLOW,
 )
+from systems.asset_loader import load_image, load_sheet_frames
+from systems.room_bounds import current_room_bounds, current_room_rect
+
+CHASER_BURST_MIN_DISTANCE = 150
+CHASER_BURST_MAX_DISTANCE = 560
+CHASER_BURST_THRESHOLD = 1.15
+CHASER_BURST_DURATION = 0.42
+CHASER_BURST_COOLDOWN = 2.05
+CHASER_BURST_SPEED_MULTIPLIER = 1.42
 
 
 class EnemyType(Enum):
     CHASER  = auto()
+    CHASER_FAST = auto()
+    CHASER_TANK = auto()
     RANGED  = auto()
+    RANGED_THREE = auto()
+    RANGED_FIVE = auto()
+    RANGED_RAIN = auto()
     JUMPER  = auto()
+    JUMPER_FAST = auto()
+    JUMPER_HEAVY = auto()
     HUNTER  = auto()
     BRUTE   = auto()
     ELITE   = auto()
@@ -38,13 +53,24 @@ class EnemyType(Enum):
 
 
 class Enemy:
+    _chaser_idle_image = None
+    _chaser_walk_frames = None
+
+    _ranged_idle_image = None
+    _ranged_body_frames = None
+    _ranged_weapon_frames = None
+    _phase_font = None
+
     def __init__(self, x, y, enemy_type=EnemyType.CHASER, difficulty=1.0):
         self.type = enemy_type
         self.difficulty = max(1.0, difficulty)
-        self.health_scale = self.difficulty ** 1.35
-        self.speed_scale = min(3.15, 0.85 + self.difficulty * 0.42)
-        self.damage_multiplier = min(3.4, 1.0 + self.difficulty * 0.16)
-        self.attack_speed_multiplier = min(2.35, 1.0 + self.difficulty * 0.11)
+        self.health_scale = self.difficulty ** 1.45
+        self.speed_scale = min(1.55, 0.85 + self.difficulty * 0.14)
+        self.damage_multiplier = min(3.8, 1.0 + self.difficulty * 0.28)
+        self.attack_speed_multiplier = min(2.80, 1.0 + self.difficulty * 0.22)
+
+        ranged_types = (EnemyType.RANGED, EnemyType.RANGED_THREE, EnemyType.RANGED_FIVE, EnemyType.RANGED_RAIN)
+        jumper_types = (EnemyType.JUMPER, EnemyType.JUMPER_FAST, EnemyType.JUMPER_HEAVY)
 
         if self.type == EnemyType.LOOT:
             self.rect       = pygame.Rect(x, y, 36, 36)
@@ -81,22 +107,43 @@ class Enemy:
             self.rect      = pygame.Rect(x, y, 34, 34)
             base_speed     = ENEMY_SPEED
 
-            if self.type == EnemyType.RANGED:
+            if self.type in ranged_types:
                 base_speed *= 0.72
-            elif self.type == EnemyType.JUMPER:
+            elif self.type in jumper_types:
                 base_speed *= 0.88
+            elif self.type == EnemyType.CHASER_FAST:
+                base_speed *= 1.28
+            elif self.type == EnemyType.CHASER_TANK:
+                base_speed *= 0.78
 
             self.speed      = base_speed * self.speed_scale
             self.max_health = int(ENEMY_HEALTH * self.health_scale)
 
-            if self.type == EnemyType.RANGED:
-                self.max_health = int(self.max_health * 0.82)
-            elif self.type == EnemyType.JUMPER:
-                self.max_health = int(self.max_health * 1.35)
+            if self.type in ranged_types:
+                ranged_health = {
+                    EnemyType.RANGED: 0.76,
+                    EnemyType.RANGED_THREE: 0.86,
+                    EnemyType.RANGED_FIVE: 0.98,
+                    EnemyType.RANGED_RAIN: 1.10,
+                }[self.type]
+                self.max_health = int(self.max_health * ranged_health)
+            elif self.type in jumper_types:
+                jumper_health = {
+                    EnemyType.JUMPER: 1.25,
+                    EnemyType.JUMPER_FAST: 1.05,
+                    EnemyType.JUMPER_HEAVY: 1.65,
+                }[self.type]
+                self.max_health = int(self.max_health * jumper_health)
+            elif self.type == EnemyType.CHASER_FAST:
+                self.max_health = int(self.max_health * 0.78)
+            elif self.type == EnemyType.CHASER_TANK:
+                self.max_health = int(self.max_health * 1.65)
+                self.damage_multiplier *= 1.12
 
         self.health    = self.max_health
         self.alive     = True
         self.hit_flash = 0.0
+        self.knockback_timer = 0.0
 
         self.attack_cooldown  = 1.0
         self.windup_timer     = 0.0
@@ -107,17 +154,38 @@ class Enemy:
         self.leap_velocity = pygame.Vector2(0, 0)
 
         self.boss_attack_index = 0
+        self.elite_attack_index = 0
         self.last_player_center = None
         self.estimated_player_velocity = pygame.Vector2(0, 0)
+        self.anti_kite_timer = 0.0
+        self.chase_pressure_timer = 0.0
+        self.chaser_burst_timer = 0.0
+        self.chaser_burst_cooldown = 0.35 + ((int(x) + int(y)) % 7) * 0.11
+        self.path_commit_timer = 0.0
+        self.path_commit_direction = pygame.Vector2(0, 0)
 
         # animation tick (used for oscillating effects)
         self._anim = 0.0
+
+        if Enemy._chaser_idle_image is None:
+            Enemy._chaser_idle_image = load_image("enamyIdle.png", size=(36, 36))
+        if Enemy._chaser_walk_frames is None:
+            Enemy._chaser_walk_frames = load_sheet_frames("enamy1.png", (32, 32), scale=(36, 36))
+            
+        if Enemy._ranged_idle_image is None:
+            Enemy._ranged_idle_image = load_image("enemyRangedIdle.png", size=(36, 36))
+        if Enemy._ranged_body_frames is None:
+            Enemy._ranged_body_frames = load_sheet_frames("enamyRange.png", (64, 64), scale=(42, 42))
+        if Enemy._ranged_weapon_frames is None:
+            Enemy._ranged_weapon_frames = load_sheet_frames("enamyRangeWepaon.png", (64, 64), scale=(32, 32))
 
     # ------------------------------------------------------------------ #
     #  UPDATE LOGIC  (unchanged from original)                            #
     # ------------------------------------------------------------------ #
 
-    def update(self, dt, player_rect):
+    def update(self, dt, player_rect, solid_rects=None):
+        self.solid_rects = solid_rects or ()
+        self.player_rect = player_rect
         if not self.alive:
             return None
 
@@ -125,8 +193,18 @@ class Enemy:
 
         if self.hit_flash > 0:
             self.hit_flash = max(0, self.hit_flash - dt)
+        if self.knockback_timer > 0:
+            self.knockback_timer = max(0, self.knockback_timer - dt)
         if self.attack_cooldown > 0:
             self.attack_cooldown = max(0, self.attack_cooldown - dt)
+        if self.anti_kite_timer > 0:
+            self.anti_kite_timer = max(0, self.anti_kite_timer - dt)
+        if self.chaser_burst_timer > 0:
+            self.chaser_burst_timer = max(0, self.chaser_burst_timer - dt)
+        if self.chaser_burst_cooldown > 0:
+            self.chaser_burst_cooldown = max(0, self.chaser_burst_cooldown - dt)
+        if self.path_commit_timer > 0:
+            self.path_commit_timer = max(0, self.path_commit_timer - dt)
 
         if self.windup_timer > 0:
             self.windup_timer = max(0, self.windup_timer - dt)
@@ -135,9 +213,12 @@ class Enemy:
             return None
 
         if self.leap_timer > 0:
+            old_rect = self.rect.copy()
             self.leap_timer = max(0, self.leap_timer - dt)
-            self.rect.x += round(self.leap_velocity.x * dt)
-            self.rect.y += round(self.leap_velocity.y * dt)
+            self._move_vector(self.leap_velocity * dt, ignore_solids=True)
+            self.rect.clamp_ip(current_room_rect())
+            if self.leap_timer <= 0:
+                self._resolve_leap_landing(old_rect)
             return None
 
         player_center = pygame.Vector2(player_rect.center)
@@ -153,11 +234,14 @@ class Enemy:
         distance  = to_player.length()
         direction = to_player.normalize() if distance > 0 else pygame.Vector2(0, 0)
 
+        ranged_types = (EnemyType.RANGED, EnemyType.RANGED_THREE, EnemyType.RANGED_FIVE, EnemyType.RANGED_RAIN)
+        jumper_types = (EnemyType.JUMPER, EnemyType.JUMPER_FAST, EnemyType.JUMPER_HEAVY)
+
         if self.type == EnemyType.LOOT:
             self._update_loot(distance, direction, dt)
-        elif self.type == EnemyType.RANGED:
+        elif self.type in (EnemyType.RANGED, EnemyType.RANGED_THREE, EnemyType.RANGED_FIVE, EnemyType.RANGED_RAIN):
             self._update_ranged(distance, direction, dt)
-        elif self.type == EnemyType.JUMPER:
+        elif self.type in (EnemyType.JUMPER, EnemyType.JUMPER_FAST, EnemyType.JUMPER_HEAVY):
             self._update_jumper(distance, direction, dt)
         elif self.type == EnemyType.HUNTER:
             self._update_hunter(distance, direction, dt)
@@ -167,6 +251,8 @@ class Enemy:
             self._update_elite(distance, direction, dt)
         elif self.type == EnemyType.BOSS:
             self._update_boss(distance, direction, dt)
+        elif self.type == EnemyType.CHASER:
+            self._update_chaser(distance, direction, dt)
         else:
             self._move(direction, dt)
 
@@ -190,30 +276,79 @@ class Enemy:
         return aim.normalize()
 
     def _update_loot(self, distance, direction, dt):
-        center_pull = pygame.Vector2(MAP_SIZE / 2 - self.rect.centerx, MAP_SIZE / 2 - self.rect.centery)
+        bounds = current_room_bounds()
+        center_pull = pygame.Vector2(bounds.centerx - self.rect.centerx, bounds.centery - self.rect.centery)
         flee = -direction if distance > 0 else pygame.Vector2(1, 0).rotate(self._anim * 90)
         side = pygame.Vector2(-direction.y, direction.x) if distance > 0 else pygame.Vector2(0, 1)
         weave = side * math.sin(self._anim * 5.2) * 0.85
         edge_pull = pygame.Vector2(0, 0)
         edge_margin = 260
-        if self.rect.left < edge_margin or self.rect.right > MAP_SIZE - edge_margin or self.rect.top < edge_margin or self.rect.bottom > MAP_SIZE - edge_margin:
+        if (
+            self.rect.left < bounds.left + edge_margin
+            or self.rect.right > bounds.right - edge_margin
+            or self.rect.top < bounds.top + edge_margin
+            or self.rect.bottom > bounds.bottom - edge_margin
+        ):
             if center_pull.length_squared() > 0:
                 edge_pull = center_pull.normalize() * 1.25
         panic = 1.22 if distance < 230 else 1.0
         move_dir = flee * panic + weave + edge_pull
         if move_dir.length_squared() > 0:
             self._move(move_dir.normalize(), dt)
-            self.rect.clamp_ip(pygame.Rect(0, 0, MAP_SIZE, MAP_SIZE))
+            self.rect.clamp_ip(current_room_rect())
+
+    def _update_chaser(self, distance, direction, dt):
+        if distance <= 0:
+            return
+
+        if self.chaser_burst_timer > 0:
+            if not self._has_line_of_sight():
+                self.chaser_burst_timer = 0.0
+                self.chase_pressure_timer = 0.0
+                self._move(self._obstacle_seek_direction(direction), dt)
+                return
+            old_speed = self.speed
+            self.speed *= CHASER_BURST_SPEED_MULTIPLIER
+            self._move(direction, dt)
+            self.speed = old_speed
+            return
+
+        has_sight = self._has_line_of_sight()
+        can_pressure = CHASER_BURST_MIN_DISTANCE < distance < CHASER_BURST_MAX_DISTANCE and has_sight
+        if can_pressure:
+            self.chase_pressure_timer += dt
+        else:
+            self.chase_pressure_timer = max(0.0, self.chase_pressure_timer - dt * 1.5)
+
+        if (
+            can_pressure
+            and self.chase_pressure_timer >= CHASER_BURST_THRESHOLD
+            and self.chaser_burst_cooldown <= 0
+        ):
+            self.chase_pressure_timer = 0.0
+            self.chaser_burst_timer = CHASER_BURST_DURATION
+            self.chaser_burst_cooldown = CHASER_BURST_COOLDOWN + ((self.rect.centerx + self.rect.centery) % 5) * 0.08
+
+        self._move(direction if has_sight else self._obstacle_seek_direction(direction), dt)
 
     def _update_ranged(self, distance, direction, dt):
-        if distance <= RANGED_ATTACK_RANGE and self.attack_cooldown <= 0:
-            aim = self._predictive_direction(0.72, 120)
-            self._start_windup(max(0.24, RANGED_WINDUP_TIME * 0.55), aim, "enemy_shoot")
-            self.attack_cooldown = max(0.42, RANGED_ATTACK_COOLDOWN * 0.58 / self.attack_speed_multiplier)
+        has_sight = self._has_line_of_sight()
+        if distance <= RANGED_ATTACK_RANGE and self.attack_cooldown <= 0 and has_sight:
+            if self.type == EnemyType.RANGED_RAIN:
+                aim = self._predictive_direction(0.45, 40)
+                self._start_windup(max(0.35, RANGED_WINDUP_TIME * 0.70), aim, "enemy_rain")
+                self.attack_cooldown = max(1.05, RANGED_ATTACK_COOLDOWN * 0.92 / self.attack_speed_multiplier)
+            else:
+                aim = self._predictive_direction(0.72, 120)
+                self._start_windup(max(0.24, RANGED_WINDUP_TIME * 0.55), aim, "enemy_shoot")
+                cooldown_scale = 0.64 if self.type == EnemyType.RANGED else (0.70 if self.type == EnemyType.RANGED_THREE else 0.78)
+                self.attack_cooldown = max(0.42, RANGED_ATTACK_COOLDOWN * cooldown_scale / self.attack_speed_multiplier)
             return
 
         strafe = pygame.Vector2(-direction.y, direction.x) * math.sin(self._anim * 2.3) * 0.75
-        if distance < 115:
+        if not has_sight:
+            move_dir = self._obstacle_seek_direction(direction)
+        elif distance < 115:
             move_dir = -direction + strafe * 0.35
         elif distance > 285:
             move_dir = direction + strafe * 0.35
@@ -223,22 +358,27 @@ class Enemy:
             self._move(move_dir.normalize(), dt)
 
     def _update_jumper(self, distance, direction, dt):
-        if distance <= JUMPER_ATTACK_RANGE and self.attack_cooldown <= 0:
+        attack_range = JUMPER_ATTACK_RANGE + (60 if self.type == EnemyType.JUMPER_HEAVY else 0)
+        if distance <= attack_range and self.attack_cooldown <= 0:
             aim = self._predictive_direction(0.48, 80)
-            self._start_windup(max(0.28, JUMPER_WINDUP_TIME * 0.58), aim, "enemy_jump")
-            self.attack_cooldown = max(0.85, JUMPER_ATTACK_COOLDOWN * 0.62 / self.attack_speed_multiplier)
+            self._start_windup(max(0.24, JUMPER_WINDUP_TIME * (0.48 if self.type == EnemyType.JUMPER_FAST else 0.68 if self.type == EnemyType.JUMPER_HEAVY else 0.58)), aim, "enemy_jump")
+            cooldown_scale = 0.50 if self.type == EnemyType.JUMPER_FAST else (0.82 if self.type == EnemyType.JUMPER_HEAVY else 0.62)
+            self.attack_cooldown = max(0.78, JUMPER_ATTACK_COOLDOWN * cooldown_scale / self.attack_speed_multiplier)
             return
         self._move(direction, dt)
 
     def _update_hunter(self, distance, direction, dt):
-        if distance <= RANGED_ATTACK_RANGE + 170 and self.attack_cooldown <= 0:
+        has_sight = self._has_line_of_sight()
+        if distance <= RANGED_ATTACK_RANGE + 170 and self.attack_cooldown <= 0 and has_sight:
             aim = self._predictive_direction(0.82, 110)
             self._start_windup(0.32, aim, "hunter_homing")
             self.attack_cooldown = max(0.78, 1.15 / self.attack_speed_multiplier)
             return
 
         strafe = pygame.Vector2(-direction.y, direction.x) * math.cos(self._anim * 2.8) * 0.85
-        if distance < 105:
+        if not has_sight:
+            move_dir = self._obstacle_seek_direction(direction)
+        elif distance < 105:
             move_dir = -direction + strafe * 0.4
         elif distance > 230:
             move_dir = direction + strafe * 0.25
@@ -248,27 +388,35 @@ class Enemy:
             self._move(move_dir.normalize(), dt)
 
     def _update_brute(self, distance, direction, dt):
-        if distance <= 560 and self.attack_cooldown <= 0:
+        has_sight = self._has_line_of_sight()
+        if distance <= 560 and self.attack_cooldown <= 0 and has_sight:
             aim = self._predictive_direction(0.42, 55)
             self._start_windup(0.46, aim, "brute_charge")
             self.attack_cooldown = max(1.05, 1.95 / self.attack_speed_multiplier)
             return
         if distance > 95:
             flank = pygame.Vector2(-direction.y, direction.x) * math.sin(self._anim * 1.7) * 0.45
-            move_dir = direction + flank
+            move_dir = (direction if has_sight else self._obstacle_seek_direction(direction)) + flank
             if move_dir.length_squared() > 0:
                 move_dir = move_dir.normalize()
             self._move(move_dir, dt)
 
     def _update_elite(self, distance, direction, dt):
-        if distance <= RANGED_ATTACK_RANGE and self.attack_cooldown <= 0:
-            aim = self._predictive_direction(0.65, 110)
-            self._start_windup(0.68, aim, "elite_burst")
-            self.attack_cooldown = max(0.72, 1.55 / self.attack_speed_multiplier)
+        has_sight = self._has_line_of_sight()
+        if distance <= RANGED_ATTACK_RANGE and self.attack_cooldown <= 0 and has_sight:
+            attacks = ["elite_cross", "elite_burst", "elite_laser", "enemy_jump"]
+            action = attacks[self.elite_attack_index % len(attacks)]
+            self.elite_attack_index += 1
+            aim = self._predictive_direction(0.65, 90)
+            windup = 0.52 if action == "elite_cross" else (0.82 if action == "elite_laser" else 0.68)
+            self._start_windup(windup, aim, action)
+            self.attack_cooldown = max(1.05, 2.25 / self.attack_speed_multiplier)
             return
 
         strafe = pygame.Vector2(-direction.y, direction.x) * math.sin(self._anim * 1.9) * 0.5
-        if distance > 145:
+        if not has_sight:
+            move_dir = self._obstacle_seek_direction(direction)
+        elif distance > 145:
             move_dir = direction + strafe
         else:
             move_dir = -direction * 0.35 + strafe
@@ -282,11 +430,11 @@ class Enemy:
 
         if self.attack_cooldown <= 0:
             if self.phase == 1:
-                attacks = ["boss_cone", "boss_ring"]
+                attacks = ["boss_cone", "boss_ring", "boss_laser"]
             elif self.phase == 2:
-                attacks = ["boss_cone", "boss_ring", "boss_summon_leap"]
+                attacks = ["boss_cone", "boss_ring", "boss_summon_leap", "boss_laser"]
             else:
-                attacks = ["boss_ring", "boss_cone", "boss_summon_leap", "boss_ring"]
+                attacks = ["boss_ring", "boss_laser", "boss_cone", "boss_summon_leap"]
 
             action = attacks[self.boss_attack_index % len(attacks)]
             self.boss_attack_index += 1
@@ -304,7 +452,16 @@ class Enemy:
             return
 
         if distance > 270:
-            self._move(direction, dt)
+            pressure = 1.0
+            if distance > 560:
+                pressure = 1.35 if self.phase == 1 else 1.62
+            flank = pygame.Vector2(-direction.y, direction.x) * math.sin(self._anim * 2.1) * 0.28
+            move_dir = direction + flank
+            if move_dir.length_squared() > 0:
+                old_speed = self.speed
+                self.speed *= pressure
+                self._move(move_dir.normalize(), dt)
+                self.speed = old_speed
         elif distance < 150:
             self._move(-direction, dt)
 
@@ -313,14 +470,42 @@ class Enemy:
         self.windup_action = None
 
         if action == "enemy_jump":
-            self.leap_timer    = JUMPER_LEAP_TIME
-            self.leap_velocity = self.windup_direction * (820 * min(1.9, self.speed_scale / 1.32))
+            jump_speed = 820 * min(1.9, self.speed_scale / 1.32)
+            if self.type == EnemyType.JUMPER_FAST:
+                jump_speed *= 1.20
+            elif self.type == EnemyType.JUMPER_HEAVY:
+                jump_speed *= 0.92
+            self.leap_timer = JUMPER_LEAP_TIME * (0.88 if self.type == EnemyType.JUMPER_FAST else 1.15 if self.type == EnemyType.JUMPER_HEAVY else 1.0)
+            self.leap_velocity = self.windup_direction * jump_speed
             return {"type": "enemy_jump"}
 
         if action == "brute_charge":
+            if not self._has_line_of_sight():
+                self.attack_cooldown = min(self.attack_cooldown, 0.35)
+                return None
             self.leap_timer = 0.42
             self.leap_velocity = self.windup_direction * (660 * min(1.65, self.speed_scale / 1.45))
             return {"type": "brute_charge"}
+
+        if action == "enemy_rain":
+            target = self.last_player_center or pygame.Vector2(self.rect.center)
+            return {
+                "type": "enemy_rain",
+                "x": self.rect.centerx,
+                "y": self.rect.centery,
+                "target_x": target.x,
+                "target_y": target.y,
+                "direction": self.windup_direction.copy(),
+                "difficulty": self.difficulty,
+                "damage_multiplier": self.damage_multiplier,
+                "owner_id": id(self),
+            }
+
+        shot_count = {
+            EnemyType.RANGED: 2,
+            EnemyType.RANGED_THREE: 3,
+            EnemyType.RANGED_FIVE: 5,
+        }.get(self.type, 1)
 
         return {
             "type":      action,
@@ -331,11 +516,97 @@ class Enemy:
             "difficulty": self.difficulty,
             "damage_multiplier": self.damage_multiplier,
             "owner_id": id(self),
+            "shot_count": shot_count,
         }
 
     def _move(self, direction, dt):
-        self.rect.x += round(direction.x * self.speed * dt)
-        self.rect.y += round(direction.y * self.speed * dt)
+        if direction.x != 0:
+            self.facing_left = direction.x < 0
+        blocked = self._move_vector(direction * self.speed * dt)
+        if blocked and direction.length_squared() > 0:
+            self.path_commit_timer = 0.0
+            side = pygame.Vector2(-direction.y, direction.x)
+            if math.sin(self._anim * 3.0 + self.rect.centerx * 0.01) < 0:
+                side = -side
+            self._move_vector(side * self.speed * dt * 0.85)
+
+    def _move_vector(self, movement, ignore_solids=False):
+        dx = round(movement.x)
+        dy = round(movement.y)
+        solid_rects = () if ignore_solids else getattr(self, "solid_rects", ())
+        blocked = False
+        self.rect.x += dx
+        for solid in solid_rects:
+            if self.rect.colliderect(solid):
+                blocked = True
+                if dx > 0:
+                    self.rect.right = solid.left
+                elif dx < 0:
+                    self.rect.left = solid.right
+        self.rect.y += dy
+        for solid in solid_rects:
+            if self.rect.colliderect(solid):
+                blocked = True
+                if dy > 0:
+                    self.rect.bottom = solid.top
+                elif dy < 0:
+                    self.rect.top = solid.bottom
+        return blocked
+
+    def _collides_solid(self, rect):
+        return any(rect.colliderect(solid) for solid in getattr(self, "solid_rects", ()))
+
+    def _resolve_leap_landing(self, fallback_rect):
+        if not self._collides_solid(self.rect):
+            return
+        intended = pygame.Vector2(self.rect.center)
+        bounds = current_room_rect()
+        candidates = [fallback_rect.copy()]
+        for solid in getattr(self, "solid_rects", ()):
+            if not self.rect.colliderect(solid.inflate(2, 2)):
+                continue
+            for center in (
+                (solid.left - self.rect.width // 2 - 2, intended.y),
+                (solid.right + self.rect.width // 2 + 2, intended.y),
+                (intended.x, solid.top - self.rect.height // 2 - 2),
+                (intended.x, solid.bottom + self.rect.height // 2 + 2),
+            ):
+                candidate = self.rect.copy()
+                candidate.center = (round(center[0]), round(center[1]))
+                candidate.clamp_ip(bounds)
+                candidates.append(candidate)
+        valid = [candidate for candidate in candidates if not self._collides_solid(candidate)]
+        if valid:
+            self.rect = min(valid, key=lambda rect: pygame.Vector2(rect.center).distance_squared_to(intended))
+        else:
+            self.rect = fallback_rect.copy()
+        self.leap_velocity = pygame.Vector2(0, 0)
+
+    def _has_line_of_sight(self):
+        player_rect = getattr(self, "player_rect", None)
+        if player_rect is None:
+            return True
+        start = pygame.Vector2(self.rect.center)
+        end = pygame.Vector2(player_rect.center)
+        for solid in getattr(self, "solid_rects", ()):
+            if solid.clipline(start, end):
+                return False
+        return True
+
+    def _obstacle_seek_direction(self, direction):
+        if direction.length_squared() == 0:
+            return direction
+        if self.path_commit_timer > 0 and self.path_commit_direction.length_squared() > 0:
+            return self.path_commit_direction
+        side = pygame.Vector2(-direction.y, direction.x)
+        if abs(direction.x) > abs(direction.y):
+            side *= 1 if (self.rect.centery % 2 == 0) else -1
+        else:
+            side *= 1 if (self.rect.centerx % 2 == 0) else -1
+        committed = (direction * 0.45 + side * 0.95).normalize()
+        self.path_commit_direction = committed
+        self.path_commit_timer = 0.55
+        return committed
 
     def take_damage(self, amount):
         self.health -= amount
@@ -351,13 +622,15 @@ class Enemy:
     # ------------------------------------------------------------------ #
 
     def draw(self, surface, camera):
-        if self.hit_flash > 0:
-            self._draw_flash(surface, camera)
-        elif self.type == EnemyType.CHASER:
+        if self.type in (EnemyType.CHASER, EnemyType.CHASER_FAST, EnemyType.CHASER_TANK):
+            
             self._draw_chaser(surface, camera)
-        elif self.type == EnemyType.RANGED:
+            
+        elif self.hit_flash > 0:
+            self._draw_flash(surface, camera)
+        elif self.type in (EnemyType.RANGED, EnemyType.RANGED_THREE, EnemyType.RANGED_FIVE, EnemyType.RANGED_RAIN):
             self._draw_ranged(surface, camera)
-        elif self.type == EnemyType.JUMPER:
+        elif self.type in (EnemyType.JUMPER, EnemyType.JUMPER_FAST, EnemyType.JUMPER_HEAVY):
             self._draw_jumper(surface, camera)
         elif self.type == EnemyType.HUNTER:
             self._draw_hunter(surface, camera)
@@ -371,6 +644,7 @@ class Enemy:
             self._draw_loot(surface, camera)
 
         self._draw_health_bar(surface, camera)
+        self._draw_vampire_wounds(surface, camera)
         self._draw_windup_indicator(surface, camera)
 
     # ---- hit flash (all types) ----------------------------------------
@@ -380,64 +654,150 @@ class Enemy:
 
     # ---- CHASER --------------------------------------------------------
     def _draw_chaser(self, surface, camera):
+        if self._draw_chaser_sprite(surface, camera):
+            return
+    
         sr  = camera.apply_rect(self.rect)
         cx, cy = sr.centerx, sr.centery
         x, y, w, h = sr.x, sr.y, sr.width, sr.height
-
-        # body – dark red blocky rectangle
-        pygame.draw.rect(surface, (180, 30, 30), sr, border_radius=4)
-
-        # shoulder spikes (top corners)
+    
+        body_col = (180, 30, 30)
+        spike_col = (220, 50, 50)
+    
+        if self.type == EnemyType.CHASER_FAST:
+            body_col, spike_col = (220, 70, 40), (255, 120, 60)
+        elif self.type == EnemyType.CHASER_TANK:
+            body_col, spike_col = (125, 35, 35), (210, 80, 80)
+    
+        pygame.draw.rect(surface, body_col, sr, border_radius=4)
+    
         spike_size = 7
         for sx, sy in [(x, y), (x + w - spike_size, y)]:
-            pygame.draw.polygon(surface, (220, 50, 50), [
+            pygame.draw.polygon(surface, spike_col, [
                 (sx, sy + spike_size),
                 (sx + spike_size // 2, sy - 4),
                 (sx + spike_size, sy + spike_size),
             ])
-
-        # angry eye slit
+    
         eye_rect = pygame.Rect(x + 4, y + 7, w - 8, 7)
         pygame.draw.rect(surface, (20, 0, 0), eye_rect, border_radius=2)
         pygame.draw.rect(surface, (255, 30, 30), pygame.Rect(x + 6, y + 9, 6, 3), border_radius=1)
         pygame.draw.rect(surface, (255, 30, 30), pygame.Rect(x + w - 12, y + 9, 6, 3), border_radius=1)
-
-        # claw feet
+    
         for fx in [x + 3, x + w - 10]:
-            pygame.draw.rect(surface, (140, 20, 20),
-                             pygame.Rect(fx, y + h - 5, 7, 5), border_radius=2)
+            pygame.draw.rect(
+                surface,
+                (140, 20, 20),
+                pygame.Rect(fx, y + h - 5, 7, 5),
+                border_radius=2,
+            )
+    def _draw_chaser_sprite(self, surface, camera):
+        frames = Enemy._chaser_walk_frames or []
+        image = None
+        if frames:
+            image = frames[int(self._anim * 8) % len(frames)]
+        else:
+            image = Enemy._chaser_idle_image
+
+        if image is None:
+            return False
+            
+        facing_left = getattr(self, 'facing_left', False)
+        if self.leap_timer > 0 and self.leap_velocity.x != 0:
+            facing_left = self.leap_velocity.x < 0
+
+        sr = camera.apply_rect(self.rect)
+        scaled_image = pygame.transform.scale(image, (sr.width, sr.height))
+        
+        if not facing_left:
+            scaled_image = pygame.transform.flip(scaled_image, True, False)
+        
+        if self.hit_flash > 0:
+            scaled_image.fill((255, 255, 255, 100), special_flags=pygame.BLEND_RGB_ADD)
+        surface.blit(scaled_image, scaled_image.get_rect(center=sr.center))
+        return True
 
     # ---- RANGED --------------------------------------------------------
     def _draw_ranged(self, surface, camera):
+        if self.type == EnemyType.RANGED and self._draw_ranged_sprite(surface, camera):
+            return
+
         sr  = camera.apply_rect(self.rect)
         cx, cy = sr.centerx, sr.centery
         x, y, w, h = sr.x, sr.y, sr.width, sr.height
 
-        # robe body – tall rounded purple
-        pygame.draw.rect(surface, (90, 50, 150), sr, border_radius=8)
+        robe_col = {
+            EnemyType.RANGED: (85, 45, 135),
+            EnemyType.RANGED_THREE: (115, 55, 175),
+            EnemyType.RANGED_FIVE: (150, 55, 210),
+            EnemyType.RANGED_RAIN: (55, 80, 150),
+        }.get(self.type, (90, 50, 150))
+        hood_col = tuple(max(0, c - 28) for c in robe_col)
+        orb_col = (120, 190, 255) if self.type == EnemyType.RANGED_RAIN else (180, 120, 255)
 
-        # hood top
+        pygame.draw.rect(surface, robe_col, sr, border_radius=8)
+
         hood_pts = [
             (x + 2, y + 6),
             (cx,    y - 7),
             (x + w - 2, y + 6),
         ]
-        pygame.draw.polygon(surface, (70, 35, 125), hood_pts)
+        pygame.draw.polygon(surface, hood_col, hood_pts)
 
-        # glowing orb staff (left side)
         staff_x = x - 5
         pygame.draw.line(surface, (55, 30, 100),
                          (staff_x, y - 2), (staff_x, y + h + 2), 3)
         orb_pulse = 5 + int(2 * math.sin(self._anim * 4))
-        pygame.draw.circle(surface, (180, 120, 255), (staff_x, y - 2), orb_pulse, 2)
+        pygame.draw.circle(surface, orb_col, (staff_x, y - 2), orb_pulse, 2)
         pygame.draw.circle(surface, (220, 190, 255), (staff_x, y - 2), orb_pulse // 2)
 
-        # glowing eyes
         eye_y = y + h // 3
         pygame.draw.circle(surface, (200, 150, 255), (cx - 5, eye_y), 4)
         pygame.draw.circle(surface, (200, 150, 255), (cx + 5, eye_y), 4)
         pygame.draw.circle(surface, (240, 220, 255), (cx - 5, eye_y), 2)
         pygame.draw.circle(surface, (240, 220, 255), (cx + 5, eye_y), 2)
+
+    def _draw_ranged_sprite(self, surface, camera):
+        body_frames = Enemy._ranged_body_frames or []
+        if not body_frames:
+            return False
+
+        sr = camera.apply_rect(self.rect)
+        body = body_frames[int(self._anim * 7) % len(body_frames)]
+        aim = self._ranged_aim_direction()
+
+        if aim.x < 0:
+            body = pygame.transform.flip(body, True, False)
+
+        surface.blit(body, body.get_rect(center=sr.center))
+
+        weapon_frames = Enemy._ranged_weapon_frames or []
+        if weapon_frames:
+            weapon = weapon_frames[int(self._anim * 9) % len(weapon_frames)]
+            weapon = self._rotate_sprite_weapon(weapon, aim)
+            weapon_center = pygame.Vector2(sr.center) + aim * 23
+            weapon_rect = weapon.get_rect(center=(round(weapon_center.x), round(weapon_center.y)))
+            surface.blit(weapon, weapon_rect)
+
+        return True
+
+    def _ranged_aim_direction(self):
+        if self.windup_direction.length_squared() > 0:
+            return self.windup_direction.normalize()
+
+        if self.last_player_center is not None:
+            direction = pygame.Vector2(self.last_player_center) - pygame.Vector2(self.rect.center)
+            if direction.length_squared() > 0:
+                return direction.normalize()
+
+        return pygame.Vector2(-1 if getattr(self, "facing_left", False) else 1, 0)
+
+    def _rotate_sprite_weapon(self, image, aim):
+        angle = aim.as_polar()[1]
+        if aim.x < 0:
+            image = pygame.transform.flip(image, True, False)
+            return pygame.transform.rotate(image, -(angle - 180))
+        return pygame.transform.rotate(image, -angle)
 
     # ---- JUMPER --------------------------------------------------------
     def _draw_jumper(self, surface, camera):
@@ -446,7 +806,12 @@ class Enemy:
         x, y, w, h = sr.x, sr.y, sr.width, sr.height
 
         leaping = self.leap_timer > 0
-        col_body = (0, 180, 180) if not leaping else (0, 230, 230)
+        base_body = {
+            EnemyType.JUMPER: (0, 180, 180),
+            EnemyType.JUMPER_FAST: (40, 230, 160),
+            EnemyType.JUMPER_HEAVY: (20, 120, 210),
+        }.get(self.type, (0, 180, 180))
+        col_body = tuple(min(255, c + 50) for c in base_body) if leaping else base_body
 
         # body – teal compact block
         pygame.draw.rect(surface, col_body, sr, border_radius=6)
@@ -578,7 +943,9 @@ class Enemy:
             pulse = int(3 + 2 * math.sin(self._anim * 6))
             pygame.draw.circle(surface, (255, 60, 60), (cx, cy), w // 2 + pulse, 4)
 
-        phase_font = pygame.font.SysFont("Arial", 15, bold=True)
+        if Enemy._phase_font is None:
+            Enemy._phase_font = pygame.font.SysFont("Arial", 15, bold=True)
+        phase_font = Enemy._phase_font
         phase_shadow = phase_font.render(phase_label_text, True, (0, 0, 0))
         phase_label = phase_font.render(phase_label_text, True, phase_label_color)
         phase_pos = phase_label.get_rect(center=(cx, y - 18))
@@ -669,6 +1036,18 @@ class Enemy:
             pygame.draw.rect(surface, (20, 60, 100),  camera.apply_rect(sh_bg))
             pygame.draw.rect(surface, (80, 180, 255), camera.apply_rect(sh_fg))
 
+    def _draw_vampire_wounds(self, surface, camera):
+        stacks = int(getattr(self, "vampire_wound_stacks", 0))
+        if stacks <= 0:
+            return
+        sr = camera.apply_rect(self.rect)
+        y = sr.top - 15
+        start_x = sr.centerx - (stacks - 1) * 5
+        for index in range(stacks):
+            center = (start_x + index * 10, y)
+            pygame.draw.circle(surface, (45, 0, 12), center, 5)
+            pygame.draw.circle(surface, (235, 40, 80), center, 3)
+
     # ---- windup indicator ---------------------------------------------
     def _draw_windup_indicator(self, surface, camera):
         if self.windup_timer <= 0 or self.windup_direction.length_squared() == 0:
@@ -688,9 +1067,27 @@ class Enemy:
                                (round(start.x), round(start.y)), 30, 2)
 
         else:
-            length = 650 if self.type == EnemyType.BOSS else 520
+            length = self.windup_telegraph_length()
             width  = 7 if self.type in (EnemyType.BOSS, EnemyType.ELITE) else 3
             end    = start + self.windup_direction * length
             pygame.draw.line(surface, (255, 120, 40), start, end, width)
             pygame.draw.circle(surface, (255, 120, 40),
                                (round(start.x), round(start.y)), 20, 2)
+
+    def windup_telegraph_length(self):
+        action = self.windup_action or ""
+        if self.type == EnemyType.BOSS:
+            return 650
+        if action in ("enemy_shoot", "enemy_rain"):
+            return RANGED_ATTACK_RANGE
+        if action == "hunter_homing":
+            return RANGED_ATTACK_RANGE + 170
+        if action == "enemy_jump":
+            if self.type == EnemyType.JUMPER_HEAVY:
+                return JUMPER_ATTACK_RANGE + 60
+            return JUMPER_ATTACK_RANGE
+        if action == "brute_charge":
+            return 560
+        if self.type == EnemyType.ELITE:
+            return RANGED_ATTACK_RANGE
+        return 520

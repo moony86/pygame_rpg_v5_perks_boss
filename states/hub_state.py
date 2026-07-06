@@ -2,11 +2,8 @@ import pygame
 
 from settings import ROOMS_TO_BOSS
 
-FIRST_BOSS_GATE_ROOM = 6
-
-
 def should_enter_boss(room_number):
-    return room_number in (FIRST_BOSS_GATE_ROOM, ROOMS_TO_BOSS + 1)
+    return room_number == ROOMS_TO_BOSS + 1
 from systems.world_utils import nearest_npc
 from systems.scene_system import enter_room, enter_boss
 
@@ -23,21 +20,37 @@ def handle_hub_events (game, event):
                     return
                 game.dialogue.show("Gatekeeper", "Then go. Survive the room and return stronger.")
                 game.gatekeeper_ready = False
-                if should_enter_boss(game.room_number):
+                if hasattr(game, "stage"):
+                    game.stage.start_stage()
+                elif should_enter_boss(game.room_number):
                     enter_boss(game)
                 else:
                     enter_room(game)
+            elif npc.role == "tea_vendor":
+                game.gatekeeper_ready = False
+                game.player.receive_tea()
+                game.dialogue.show(npc.name, "Best tea in the world.")
+                game.message = "Tea acquired. Press T to drink."
             else:
                 game.gatekeeper_ready = False
                 game.dialogue.toggle_npc(npc)
         else:
             game.dialogue.close()
 
-    elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+    elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6):
         npc = nearest_npc(game.player, game.npcs)
 
         if npc and npc.role in ("blacksmith", "healer"):
             index = int(event.unicode) - 1
+            gold_before = game.player.gold
             game.message = game.upgrades.buy(game.player, npc.role, index)
             game.dialogue.show(npc.name, game.message)
-            game.events.emit("npc_purchase")
+            if game.player.gold < gold_before:
+                game.events.emit("npc_purchase")
+
+    elif event.key == pygame.K_t:
+        if getattr(game.player, "tea_state", None) == "holding":
+            if game.player.start_drinking_tea():
+                if hasattr(game, "audio"):
+                    game.audio.play("tea_drink")
+                game.message = "You drink the tea."

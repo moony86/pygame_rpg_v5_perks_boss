@@ -6,12 +6,16 @@ def handle_perk_select_events(game, event):
         return
 
     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-        choose_perk_by_mouse(game, event.pos)
+        if not reroll_perk_by_mouse(game, event.pos):
+            choose_perk_by_mouse(game, event.pos)
 
     elif event.type == pygame.KEYDOWN:
         if event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
             index = int(event.unicode) - 1
             choose_perk(game, index)
+        elif event.key in (pygame.K_q, pygame.K_w, pygame.K_e):
+            index = (pygame.K_q, pygame.K_w, pygame.K_e).index(event.key)
+            reroll_perk(game, index)
 
 
 def choose_perk_by_mouse(game, mouse_pos):
@@ -19,6 +23,21 @@ def choose_perk_by_mouse(game, mouse_pos):
         if rect.collidepoint(mouse_pos):
             choose_perk(game, index)
             break
+
+
+def reroll_perk_by_mouse(game, mouse_pos):
+    for index, rect in enumerate(getattr(game, "perk_reroll_rects", [])):
+        if rect.collidepoint(mouse_pos):
+            reroll_perk(game, index)
+            return True
+    return False
+
+
+def reroll_perk(game, index):
+    success, message = game.perks.reroll_option(game.player, index)
+    game.message = message
+    if success:
+        game.events.emit("menu_select")
 
 
 def choose_perk(game, index):

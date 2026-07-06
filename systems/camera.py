@@ -1,10 +1,12 @@
 import pygame
-from settings import SCREEN_WIDTH, SCREEN_HEIGHT, MAP_SIZE
+from settings import SCREEN_WIDTH, SCREEN_HEIGHT
+from systems.room_bounds import current_room_bounds
 
 
 class Camera:
     def __init__(self):
         self.offset = pygame.Vector2(0, 0)
+        self.render_offset = pygame.Vector2(0, 0)
         self.lerp_speed = 9.0
 
     def reset(self, target_rect):
@@ -23,11 +25,20 @@ class Camera:
         return pygame.Vector2(pos[0] + self.offset.x, pos[1] + self.offset.y)
 
     def _clamp(self):
-        self.offset.x = max(0, min(self.offset.x, MAP_SIZE - SCREEN_WIDTH))
-        self.offset.y = max(0, min(self.offset.y, MAP_SIZE - SCREEN_HEIGHT))
+        bounds = current_room_bounds()
+        self.offset.x = max(bounds.left, min(self.offset.x, bounds.right - SCREEN_WIDTH))
+        self.offset.y = max(bounds.top, min(self.offset.y, bounds.bottom - SCREEN_HEIGHT))
 
     def apply_rect(self, rect):
-        return pygame.Rect(round(rect.x - self.offset.x), round(rect.y - self.offset.y), rect.width, rect.height)
+        return pygame.Rect(
+            round(rect.x - self.offset.x + self.render_offset.x),
+            round(rect.y - self.offset.y + self.render_offset.y),
+            rect.width,
+            rect.height,
+        )
 
     def apply_pos(self, pos):
-        return pygame.Vector2(pos.x - self.offset.x, pos.y - self.offset.y)
+        return pygame.Vector2(
+            pos.x - self.offset.x + self.render_offset.x,
+            pos.y - self.offset.y + self.render_offset.y,
+        )

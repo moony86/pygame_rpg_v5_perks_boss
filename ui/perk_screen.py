@@ -13,7 +13,23 @@ PERK_COLORS = [
 ]
 
 
-def draw_perk_select(surface, big_font, font, options, mouse_pos=None):
+BUILD_COLORS = {
+    "GUNSLINGER": (90, 170, 255),
+    "ENGINEER": (90, 220, 210),
+    "NINJA": (190, 120, 255),
+    "VAMPIRE": (240, 70, 105),
+    "SHARED": (225, 190, 85),
+}
+
+
+def _build_badge_text(perk):
+    label = perk.get("build_label") or perk.get("build", "Shared/Utility")
+    label = "SHARED" if label == "Shared/Utility" else str(label).upper()
+    hybrids = [str(build).upper() for build in perk.get("hybrid_builds", [])]
+    return label, bool(hybrids)
+
+
+def draw_perk_select(surface, big_font, font, options, mouse_pos=None, reroll_labels=None, player=None):
     t = pygame.time.get_ticks() / 1000.0
 
     # dark vignette bg
@@ -35,13 +51,21 @@ def draw_perk_select(surface, big_font, font, options, mouse_pos=None):
 
     sub = font.render("Choose one perk", True, (160, 160, 180))
     surface.blit(sub, sub.get_rect(center=(SCREEN_WIDTH // 2, 136)))
+    if player is not None:
+        if getattr(player, "starter_choice_active", False):
+            status_text = "Starter choice: first pick sets soft build affinity"
+        else:
+            status_text = f"Rerolls: {getattr(player, 'reroll_tokens', 0)} token(s) | Gold reroll {getattr(player, 'gold', 0)}g"
+        status = font.render(status_text, True, (130, 145, 175))
+        surface.blit(status, status.get_rect(center=(SCREEN_WIDTH // 2, 160)))
 
     # thin gold accent line
     pygame.draw.line(surface, (100, 80, 20),
-                     (SCREEN_WIDTH // 2 - 200, 152),
-                     (SCREEN_WIDTH // 2 + 200, 152), 1)
+                     (SCREEN_WIDTH // 2 - 200, 174),
+                     (SCREEN_WIDTH // 2 + 200, 174), 1)
 
     card_rects = []
+    reroll_rects = []
     if mouse_pos is None:
         mouse_pos = pygame.mouse.get_pos()
 
@@ -52,7 +76,7 @@ def draw_perk_select(surface, big_font, font, options, mouse_pos=None):
     for i, perk in enumerate(options):
         col      = PERK_COLORS[i % len(PERK_COLORS)]
         x        = start_x + i * (card_w + gap)
-        y        = 178
+        y        = 190
         rect     = pygame.Rect(x, y, card_w, card_h)
         card_rects.append(rect)
 
@@ -86,6 +110,15 @@ def draw_perk_select(surface, big_font, font, options, mouse_pos=None):
                          (0, 0, card_w, card_h), brd_w, border_radius=12)
 
         surface.blit(card_surf, (x, draw_y))
+
+        build_label, hybrid = _build_badge_text(perk)
+        badge_col = BUILD_COLORS.get(build_label, (190, 190, 210))
+        badge_text = build_label + (" +HYBRID" if hybrid else "")
+        badge = font.render(badge_text, True, (8, 10, 18))
+        badge_rect = pygame.Rect(x + 12, draw_y + 14, max(86, badge.get_width() + 16), 24)
+        pygame.draw.rect(surface, badge_col, badge_rect, border_radius=5)
+        pygame.draw.rect(surface, (255, 255, 255), badge_rect, 1, border_radius=5)
+        surface.blit(badge, badge.get_rect(center=badge_rect.center))
 
         # icon placeholder – geometric shape per card
         icon_cx = x + card_w // 2
@@ -151,9 +184,21 @@ def draw_perk_select(surface, big_font, font, options, mouse_pos=None):
             surface.blit(ls,
                          ls.get_rect(center=(x + card_w // 2, draw_y + 160 + li * 22)))
 
+        synergy = perk.get("synergy", "")
+        limit_y = draw_y + card_h - 44
+        if synergy:
+            badge = font.render(synergy, True, (255, 220, 90))
+            badge_rect = badge.get_rect(center=(x + card_w // 2, draw_y + card_h - 68))
+            badge_bg = pygame.Surface((badge_rect.width + 14, badge_rect.height + 6), pygame.SRCALPHA)
+            badge_bg.fill((70, 55, 10, 210))
+            badge_bg_rect = badge_bg.get_rect(center=badge_rect.center)
+            surface.blit(badge_bg, badge_bg_rect)
+            surface.blit(badge, badge_rect)
+            limit_y = draw_y + card_h - 42
+
         limit_text = f"{perk.get('taken', 0)}/{perk.get('limit', 3)} taken"
         limit_surf = font.render(limit_text, True, (190, 190, 210))
-        surface.blit(limit_surf, limit_surf.get_rect(center=(x + card_w // 2, draw_y + card_h - 44)))
+        surface.blit(limit_surf, limit_surf.get_rect(center=(x + card_w // 2, limit_y)))
 
         # bottom hint
         hint_col  = col if hovered else (80, 80, 80)
@@ -161,4 +206,20 @@ def draw_perk_select(surface, big_font, font, options, mouse_pos=None):
         hs        = font.render(hint_text, True, hint_col)
         surface.blit(hs, hs.get_rect(center=(x + card_w // 2, draw_y + card_h - 18)))
 
-    return card_rects
+        label = (reroll_labels or ["NO REROLL"] * len(options))[i]
+        button_w, button_h = 190, 28
+        button_rect = pygame.Rect(x + (card_w - button_w) // 2, y + card_h + 12, button_w, button_h)
+        reroll_rects.append(button_rect)
+        enabled = label != "NO REROLL"
+        button_hovered = button_rect.collidepoint(mouse_pos)
+        button_bg = (45, 52, 78) if enabled else (28, 30, 42)
+        if enabled and button_hovered:
+            button_bg = (70, 84, 126)
+        button_border = col if enabled else (80, 80, 90)
+        pygame.draw.rect(surface, button_bg, button_rect, border_radius=6)
+        pygame.draw.rect(surface, button_border, button_rect, 1, border_radius=6)
+        label_col = (235, 240, 255) if enabled else (105, 108, 122)
+        label_surf = font.render(label, True, label_col)
+        surface.blit(label_surf, label_surf.get_rect(center=button_rect.center))
+
+    return card_rects, reroll_rects

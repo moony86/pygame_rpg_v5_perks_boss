@@ -1,0 +1,3 @@
+@echo off
+python -m nuitka --standalone --windows-console-mode=disable --include-data-dir=assets=assets --include-data-dir=data=data --output-dir=dist_nuitka_demo --remove-output main.py
+pause

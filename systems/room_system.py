@@ -1,6 +1,7 @@
 import random
 from enum import Enum, auto
 
+from definitions.room_definitions import get_room_info
 from settings import ROOM_KILLS_REQUIRED, SURVIVAL_ROOM_TIME
 
 
@@ -13,42 +14,30 @@ class RoomType(Enum):
 
 
 ROOM_INFO = {
-    RoomType.COMBAT: {
-        "title": "COMBAT ROOM",
-        "message": "Clear the waves.",
-        "color": (220, 55, 55),
-        "spawn_multiplier": 1.0,
-        "enemy_difficulty": 1.0,
-    },
-    RoomType.SURVIVAL: {
-        "title": "SURVIVAL ROOM",
-        "message": "Survive the horde.",
-        "color": (245, 150, 45),
-        "spawn_multiplier": 1.8,
-        "enemy_difficulty": 1.10,
-    },
-    RoomType.ELITE: {
-        "title": "ELITE ROOM",
-        "message": "Defeat the elite guard.",
-        "color": (255, 90, 170),
-        "spawn_multiplier": 0.0,
-        "enemy_difficulty": 1.25,
-    },
-    RoomType.TREASURE: {
-        "title": "TREASURE ROOM",
-        "message": "Claim your reward.",
-        "color": (235, 180, 40),
-        "spawn_multiplier": 0.0,
-        "enemy_difficulty": 0.0,
-    },
-    RoomType.CURSE: {
-        "title": "CURSE ROOM",
-        "message": "High risk, double reward.",
-        "color": (150, 70, 220),
-        "spawn_multiplier": 1.65,
-        "enemy_difficulty": 1.20,
-    },
+    RoomType.COMBAT: get_room_info("combat"),
+    RoomType.SURVIVAL: get_room_info("survival"),
+    RoomType.ELITE: get_room_info("elite"),
+    RoomType.TREASURE: get_room_info("treasure"),
+    RoomType.CURSE: get_room_info("curse"),
 }
+
+ROOM_PLAN = {
+    1: RoomType.COMBAT,
+    2: RoomType.COMBAT,
+    3: RoomType.TREASURE,
+    4: RoomType.ELITE,
+    # Assumption for stabilization: rooms 5 and 6 are intended to be normal combat rooms.
+    5: RoomType.COMBAT,
+    6: RoomType.COMBAT,
+    7: RoomType.COMBAT,
+    8: RoomType.ELITE,
+    9: RoomType.SURVIVAL,
+    10: RoomType.CURSE,
+}
+
+
+def room_type_for_number(room_number):
+    return ROOM_PLAN.get(room_number, RoomType.COMBAT)
 
 
 class RoomSystem:
@@ -70,19 +59,7 @@ class RoomSystem:
         This system only chooses normal rooms.
         """
 
-        room_plan = {
-            1: RoomType.COMBAT,
-            2: RoomType.COMBAT,
-            3: RoomType.TREASURE,
-            4: RoomType.ELITE,
-
-            6: RoomType.COMBAT,
-            7: RoomType.SURVIVAL,
-            8: RoomType.TREASURE,
-            9: RoomType.CURSE,
-        }
-
-        self.room_type = room_plan.get(room_number, RoomType.COMBAT)
+        self.room_type = room_type_for_number(room_number)
 
         self.room_time = 0.0
         self.banner_timer = 2.2

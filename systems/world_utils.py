@@ -1,8 +1,10 @@
 import math
+from contextlib import nullcontext
 import pygame
 
-from settings import MAP_SIZE, INTERACTION_DISTANCE, AIM_ASSIST_RANGE
+from settings import INTERACTION_DISTANCE, AIM_ASSIST_RANGE, SCREEN_WIDTH, SCREEN_HEIGHT
 from systems.room_system import RoomType
+from systems.room_bounds import current_room_bounds
 
 
 def rotate_vector(vec, degrees):
@@ -45,9 +47,12 @@ def nearest_enemy(player, enemies, max_range=AIM_ASSIST_RANGE):
     return best
 
 
-def draw_world_background(screen, camera, hub=False, room_type=None):
-    screen.fill((8, 9, 14))
-    world_rect = pygame.Rect(0, 0, MAP_SIZE, MAP_SIZE)
+def draw_world_background(screen, camera, hub=False, room_type=None, profiler=None):
+    section = profiler.section if profiler is not None else lambda _name: nullcontext()
+    with section("background fill"):
+        screen.fill((8, 9, 14))
+    bounds = current_room_bounds()
+    world_rect = bounds.rect
 
     if hub:
         bg = (28, 34, 34)
@@ -68,34 +73,49 @@ def draw_world_background(screen, camera, hub=False, room_type=None):
         bg = (24, 27, 36)
         grid_col = (45, 50, 64)
 
-    pygame.draw.rect(screen, bg, camera.apply_rect(world_rect))
+    with section("floor draw"):
+        pygame.draw.rect(screen, bg, camera.apply_rect(world_rect))
 
     grid_size = 120
-    for x in range(0, MAP_SIZE + 1, grid_size):
-        pygame.draw.line(
-            screen,
-            grid_col,
-            camera.apply_pos(pygame.Vector2(x, 0)),
-            camera.apply_pos(pygame.Vector2(x, MAP_SIZE)),
-            1,
-        )
-    for y in range(0, MAP_SIZE + 1, grid_size):
-        pygame.draw.line(
-            screen,
-            grid_col,
-            camera.apply_pos(pygame.Vector2(0, y)),
-            camera.apply_pos(pygame.Vector2(MAP_SIZE, y)),
-            1,
-        )
-    edge_warning_rects = [
-        pygame.Rect(0, 0, MAP_SIZE, 76),
-        pygame.Rect(0, MAP_SIZE - 76, MAP_SIZE, 76),
-        pygame.Rect(0, 0, 76, MAP_SIZE),
-        pygame.Rect(MAP_SIZE - 76, 0, 76, MAP_SIZE),
-    ]
-    for edge_rect in edge_warning_rects:
-        pygame.draw.rect(screen, (70, 18, 16), camera.apply_rect(edge_rect))
+    visible = pygame.Rect(
+        int(camera.offset.x),
+        int(camera.offset.y),
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+    ).clip(world_rect)
+    start_x = max(bounds.left, (visible.left // grid_size) * grid_size)
+    end_x = min(bounds.right, ((visible.right + grid_size - 1) // grid_size) * grid_size)
+    start_y = max(bounds.top, (visible.top // grid_size) * grid_size)
+    end_y = min(bounds.bottom, ((visible.bottom + grid_size - 1) // grid_size) * grid_size)
 
-    border_rect = camera.apply_rect(world_rect)
-    pygame.draw.rect(screen, (255, 54, 38), border_rect, 12)
-    pygame.draw.rect(screen, (255, 210, 48), border_rect.inflate(-28, -28), 4)
+    with section("world grid draw"):
+        for x in range(start_x, end_x + 1, grid_size):
+            pygame.draw.line(
+                screen,
+                grid_col,
+                camera.apply_pos(pygame.Vector2(x, visible.top)),
+                camera.apply_pos(pygame.Vector2(x, visible.bottom)),
+                1,
+            )
+        for y in range(start_y, end_y + 1, grid_size):
+            pygame.draw.line(
+                screen,
+                grid_col,
+                camera.apply_pos(pygame.Vector2(visible.left, y)),
+                camera.apply_pos(pygame.Vector2(visible.right, y)),
+                1,
+            )
+    edge_warning_rects = [
+        pygame.Rect(bounds.left, bounds.top, bounds.width, 76),
+        pygame.Rect(bounds.left, bounds.bottom - 76, bounds.width, 76),
+        pygame.Rect(bounds.left, bounds.top, 76, bounds.height),
+        pygame.Rect(bounds.right - 76, bounds.top, 76, bounds.height),
+    ]
+    with section("world edge draw"):
+        for edge_rect in edge_warning_rects:
+            if edge_rect.colliderect(visible):
+                pygame.draw.rect(screen, (70, 18, 16), camera.apply_rect(edge_rect))
+
+        border_rect = camera.apply_rect(world_rect)
+        pygame.draw.rect(screen, (255, 54, 38), border_rect, 12)
+        pygame.draw.rect(screen, (255, 210, 48), border_rect.inflate(-28, -28), 4)
