@@ -1,15 +1,24 @@
 import pygame
 
-from config import CONFIG
+from config import CONFIG, save_preferences
 from game_state import GameState
 
 def handle_pause_events(game, event):
     if event.type == pygame.KEYDOWN:
-        if event.key == pygame.K_q:
+        if event.key == pygame.K_RETURN:
+            game.dialogue.close()
+            game.state = GameState.MENU
+            game.menu_page = 'main'
+            game.menu_focus = 0
+            game.music.stop_music()
+        elif event.key == pygame.K_q:
             game.quit()
 
 
 def handle_pause_mouse(game, event):
+    if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+        save_preferences()
+        return
     if event.type not in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION):
         return
 
@@ -19,7 +28,7 @@ def handle_pause_mouse(game, event):
     mouse_pos = event.pos
 
     for slider_name, rect in game.pause_sliders.items():
-        if rect.collidepoint(mouse_pos):
+        if rect.inflate(0, 28).collidepoint(mouse_pos):
             value = (mouse_pos[0] - rect.x) / rect.width
             value = max(0.0, min(1.0, value))
 
@@ -31,6 +40,7 @@ def handle_pause_mouse(game, event):
                 CONFIG["sfx_volume"] = value
 
             game.audio.apply_volumes()
+            game.music.apply_volume()
 
 
 def handle_pause_state(game, event, handle_escape_key):

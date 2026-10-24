@@ -29,7 +29,7 @@ def asset_load_stats():
     return {key: value.copy() for key, value in ASSET_LOAD_STATS.items()}
 
 
-def load_image(name, size=None):
+def load_image(name, size=None, *, pixel_art=False):
     path = ASSET_ROOT / name
     if not path.exists():
         _record_load(name, path, "image", False)
@@ -44,7 +44,8 @@ def load_image(name, size=None):
         return None
 
     if size is not None and image.get_size() != size:
-        image = pygame.transform.smoothscale(image, size)
+        transform = pygame.transform.scale if pixel_art else pygame.transform.smoothscale
+        image = transform(image, size)
     _record_load(name, path, "image", True)
     return image
 

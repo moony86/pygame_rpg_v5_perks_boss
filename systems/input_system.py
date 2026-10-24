@@ -34,14 +34,22 @@ class InputSystem:
             if game.state == GameState.PERK_SELECT:
                 handle_perk_select_events(game, event)
                 continue
-            
+
             if game.state == GameState.PAUSED:
                 handle_pause_state(game, event, handle_escape_key)
                 continue
-            
+
 
             if game.state == GameState.MENU:
                 handle_menu_events(game, event)
+                continue
+
+            if game.state in (GameState.ROOM, GameState.BOSS):
+                if event.type in (pygame.KEYDOWN, pygame.KEYUP):
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        handle_escape_key(game)
+                    else:
+                        handle_combat_events(game, event)
                 continue
 
             if event.type != pygame.KEYDOWN:
@@ -56,6 +64,3 @@ class InputSystem:
 
             elif game.state == GameState.HUB:
                 handle_hub_events(game, event)
-
-            elif game.state in (GameState.ROOM, GameState.BOSS):
-                handle_combat_events(game, event)

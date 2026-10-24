@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Vampire: Vital Core - قطرة دم بداخلها نواة وعلامة صحة -->
+  <circle cx="128" cy="128" r="116" fill="none" stroke="#DC3737" stroke-opacity="0.12" stroke-width="8"/>
+  <circle cx="128" cy="128" r="110" fill="none" stroke="#DC3737" stroke-opacity="0.25" stroke-width="5"/>
+  <circle cx="128" cy="128" r="104" fill="#0E101C"/>
+  <circle cx="128" cy="128" r="94" fill="#151A30"/>
+  <circle cx="128" cy="128" r="104" fill="none" stroke="#DC3737" stroke-width="6"/>
+
+  <!-- القطرة -->
+  <path d="M128 52 C128 52 80 108 80 148 A48 48 0 0 0 176 148 C176 108 128 52 128 52 Z"
+        fill="#DC3737" stroke="#FF9A9A" stroke-width="8" stroke-linejoin="round"/>
+
+  <!-- النواة -->
+  <circle cx="128" cy="150" r="30" fill="#0E101C"/>
+  <circle cx="128" cy="150" r="30" fill="none" stroke="#FF9A9A" stroke-opacity="0.5" stroke-width="4"/>
+  <!-- علامة زائد -->
+  <g stroke="#FF9A9A" stroke-width="10" stroke-linecap="round">
+    <line x1="128" y1="135" x2="128" y2="165"/>
+    <line x1="113" y1="150" x2="143" y2="150"/>
+  </g>
+  <!-- لمعة -->
+  <path d="M100 118 Q104 104 114 94" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="6" stroke-linecap="round"/>
+</svg>

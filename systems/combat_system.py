@@ -26,11 +26,54 @@ PROJECTILE_ENEMY_HURTBOX_INFLATE = 10
 class CombatSystem:
     def __init__(self):
         self.player_contact_timer = 0.0
+        self.projectile_pool = None
+
+    def _make_projectile(self,x,y,direction,damage,**kwargs):
+        if self.projectile_pool is not None:
+            return self.projectile_pool.acquire(x,y,direction,damage,**kwargs)
+        return Projectile(x,y,direction,damage,**kwargs)
 
     def reset(self):
         self.player_contact_timer = 0.0
 
+    def _parry_boss_orbs(self,player,projectiles,enemies,bullets,effects,audio,feel):
+        from systems.boss_encounter import TUNING
+        if not getattr(player,'ninja_dash_charges_enabled',False) or getattr(player,'ninja_parry_timer',0)<=0:
+            return
+        origin=pygame.Vector2(player.rect.center)
+        for bullet in bullets:
+            if not bullet.alive or not getattr(bullet,'parryable',False):
+                continue
+            if not player.rect.inflate(TUNING['parry_range']*2,TUNING['parry_range']*2).clipline(bullet.previous_pos,bullet.pos):
+                continue
+            if player.dash_direction.dot(-bullet.direction)<.45:
+                continue
+            boss=next((e for e in enemies if id(e)==bullet.owner_id and e.alive and getattr(e,'encounter',None)),None)
+            if boss is None:
+                continue
+            bullet.kill()
+            player.ninja_parry_timer=0.
+            boss.encounter.parried()
+            direction=pygame.Vector2(boss.rect.center)-origin
+            shot=self._make_projectile(origin.x,origin.y,direction,
+                boss.max_health*TUNING['reflected_damage_ratio'],speed=1100,source='boss_parry')
+            shot.reflected_owner_id=id(boss)
+            shot.visual_style='magic'
+            shot.remaining_life=5.
+            projectiles.append(shot)
+            player.refill_dash_charge(1)
+            if audio:
+                audio.play('ninja_parry')
+            if effects:
+                effects.message('PARRY!',player.rect.midtop,color=(150,245,255))
+                effects.ring(origin,color=(145,240,255),radius=95,life=.25,width=5)
+            if feel:
+                feel.hit_stop(.07)
+            break
+
     def pressure_boss_after_long_range_hit(self, boss, player):
+        if getattr(boss,'encounter',None) is not None:
+            return
         if boss.type != EnemyType.BOSS or getattr(boss, "anti_kite_timer", 0) > 0:
             return
 
@@ -52,23 +95,28 @@ class CombatSystem:
         boss.anti_kite_timer = 0.62
 
     def update(self, dt, player, projectiles, enemies, enemy_bullets, effects=None, audio=None, reward_multiplier=1, enemy_factory=None, loot_system=None, feel=None, spatial_grid=None):
+        for enemy in enemies:
+            if getattr(enemy,'encounter',None) is not None:
+                enemy.encounter.advance_damage_budget(dt)
+        self._parry_boss_orbs(player,projectiles,enemies,enemy_bullets,effects,audio,feel)
         if self.player_contact_timer > 0:
             self.player_contact_timer = max(0, self.player_contact_timer - dt)
 
         kills = 0
         boss_killed = False
         kill_rewarded_ids = set()
+        targets=[enemy for enemy in enemies if not (getattr(enemy,'encounter',None) and enemy.encounter.airborne)]
 
         direct_kills = []
-        direct_kills.extend(self._update_dash_strike(player, projectiles, enemies, effects, audio))
-        direct_kills.extend(self._update_vampire_trail(dt, player, enemies, effects, audio))
-        direct_kills.extend(self._update_engineer_blades(dt, player, enemies, effects, audio, spatial_grid=spatial_grid))
-        direct_kills.extend(self._update_engineer_bomber(dt, player, enemies, effects, audio))
-        direct_kills.extend(self._update_engineer_airstrike(dt, player, enemies, effects, audio))
-        direct_kills.extend(self._update_blood_bat(dt, player, enemies, effects, audio))
+        direct_kills.extend(self._update_dash_strike(player, projectiles, targets, effects, audio, feel))
+        direct_kills.extend(self._update_vampire_trail(dt, player, targets, effects, audio))
+        direct_kills.extend(self._update_engineer_blades(dt, player, targets, effects, audio, spatial_grid=spatial_grid if len(targets)==len(enemies) else None))
+        direct_kills.extend(self._update_engineer_bomber(dt, player, targets, effects, audio))
+        direct_kills.extend(self._update_engineer_airstrike(dt, player, targets, effects, audio))
+        direct_kills.extend(self._update_blood_bat(dt, player, targets, effects, audio))
         self._update_vampire_wounds(dt, enemies)
         self._update_blood_orbs(dt, player, effects)
-        self._update_engineer_helper_projectile(dt, player, projectiles, enemies, effects, audio)
+        self._update_engineer_helper_projectile(dt, player, projectiles, targets, effects, audio)
         for enemy in direct_kills:
             if id(enemy) in kill_rewarded_ids:
                 continue
@@ -83,11 +131,13 @@ class CombatSystem:
                 continue
             candidates = spatial_grid.nearby_rect(projectile.rect, padding=96) if spatial_grid is not None else enemies
             for enemy in candidates:
+                if getattr(enemy,'encounter',None) and enemy.encounter.airborne:
+                    continue
                 if not enemy.alive or not projectile.can_hit(enemy):
                     continue
                 hit_rect = enemy.rect.inflate(PROJECTILE_ENEMY_HURTBOX_INFLATE, PROJECTILE_ENEMY_HURTBOX_INFLATE)
                 if projectile.rect.colliderect(hit_rect):
-                    if enemy.type == EnemyType.BOSS and enemy.phase == 1:
+                    if enemy.type == EnemyType.BOSS and enemy.phase == 1 and getattr(enemy,'encounter',None) is None:
                         if feel:
                             feel.normal_hit()
                         self.pressure_boss_after_long_range_hit(enemy, player)
@@ -98,6 +148,10 @@ class CombatSystem:
 
                         if effects:
                             effects.damage_number(projectile.damage, enemy.rect.midtop, critical=projectile.critical)
+                            if hasattr(effects,'projectile_hit'):
+                                effects.projectile_hit(projectile,projectile.pos,enemy,shield=True)
+                            elif hasattr(effects,'impact'):
+                                effects.impact(enemy.rect.center,critical=projectile.critical)
                             effects.ring(enemy.rect.center, radius=38, life=0.18, width=2)
                         
                         if audio:
@@ -120,7 +174,22 @@ class CombatSystem:
 
                         break
 
-                    killed = enemy.take_damage(projectile.damage)
+                    encounter=getattr(enemy,'encounter',None)
+                    if getattr(projectile,'source','')=='boss_parry':
+                        if id(enemy)!=getattr(projectile,'reflected_owner_id',None):
+                            continue
+                        killed=enemy.take_damage(projectile.damage,reflected=True)
+                    else:
+                        killed = enemy.take_damage(projectile.damage)
+                    if encounter is not None and encounter.last_damage<=0:
+                        projectile.register_hit(enemy)
+                        if encounter.block_feedback_timer<=0:
+                            encounter.block_feedback_timer=.35
+                            if audio:
+                                audio.play('boss_guard')
+                            if effects:
+                                effects.message('CORE SATURATED' if encounter.state=='exposed' else 'GUARDED',enemy.rect.midtop,color=(125,195,235))
+                        break
                     self._apply_sanguine_wound(player, enemy, effects)
                     self._apply_vampire_hit_feed(player, enemy, effects)
                     if feel:
@@ -129,6 +198,7 @@ class CombatSystem:
                         self.pressure_boss_after_long_range_hit(enemy, player)
                     if (
                         enemy.type == EnemyType.BOSS
+                        and encounter is None
                         and not killed
                         and not getattr(enemy, "half_health_elite_spawned", False)
                         and enemy.health <= enemy.max_health * 0.5
@@ -157,7 +227,11 @@ class CombatSystem:
                         if effects:
                             effects.message(f"+{LOOT_HIT_GOLD_REWARD}g +{LOOT_HIT_XP_REWARD}xp", enemy.rect.midtop)
                     if effects:
-                        effects.damage_number(projectile.damage, enemy.rect.midtop, critical=projectile.critical)
+                        effects.damage_number(round(encounter.last_damage) if encounter else projectile.damage, enemy.rect.midtop, critical=projectile.critical)
+                        if hasattr(effects,'projectile_hit'):
+                            effects.projectile_hit(projectile,projectile.pos,enemy)
+                        elif hasattr(effects,'impact'):
+                            effects.impact(enemy.rect.center,critical=projectile.critical)
                         effects.ring(enemy.rect.center, radius=38 if getattr(projectile, "explosive", False) else 26, life=0.18, width=3 if getattr(projectile, "explosive", False) else 2)
                     if getattr(projectile, "explosive", False):
                         explosion_radius = getattr(projectile, "explosion_radius", 95)
@@ -170,6 +244,8 @@ class CombatSystem:
                             dy = splash_enemy.rect.centery - enemy.rect.centery
                             if dx * dx + dy * dy <= explosion_radius * explosion_radius:
                                 splash_enemy.take_damage(splash_damage)
+                                if effects and hasattr(effects,'projectile_hit'):
+                                    effects.projectile_hit(projectile,splash_enemy.rect.center,splash_enemy)
                     if audio:
                         audio.play("hit")
                     projectile.register_hit(enemy)
@@ -188,13 +264,15 @@ class CombatSystem:
                         feel.player_hit()
                     bullet.kill()
                     if effects:
+                        if hasattr(effects,'projectile_hit'):
+                            effects.projectile_hit(bullet,bullet.pos,player)
                         effects.ring(player.rect.center, radius=45, life=0.22, width=3)
                     if audio:
-                        audio.play("hit")
+                        audio.play("player_hurt")
 
         if self.player_contact_timer <= 0:
             for enemy in enemies:
-                if enemy.alive and player.rect.colliderect(enemy.rect):
+                if enemy.alive and not getattr(enemy,'is_boss_eye',False) and not (getattr(enemy,'encounter',None) and enemy.encounter.airborne) and player.rect.colliderect(enemy.rect):
                     if enemy.type == EnemyType.BOSS:
                         damage = BOSS_DAMAGE
                     elif getattr(enemy, "leap_timer", 0) > 0:
@@ -202,6 +280,8 @@ class CombatSystem:
                     else:
                         damage = ENEMY_DAMAGE
                     damage = int(damage * getattr(enemy, "damage_multiplier", 1.0))
+                    if getattr(enemy,'encounter',None) is not None:
+                        damage=24+enemy.phase*2
                     if player.take_damage(damage):
                         if feel:
                             feel.player_hit()
@@ -209,36 +289,65 @@ class CombatSystem:
                         if effects:
                             effects.ring(player.rect.center, radius=45, life=0.22, width=3)
                         if audio:
-                            audio.play("hit")
+                            audio.play("player_hurt")
                     break
 
         return kills, boss_killed
 
-    def _update_dash_strike(self, player, projectiles, enemies, effects=None, audio=None):
+    def _update_dash_strike(self, player, projectiles, enemies, effects=None, audio=None, feel=None):
         killed_enemies = []
         damage = getattr(player, "dash_strike_damage", 0)
-        if damage <= 0 or getattr(player, "dash_timer", 0) <= 0:
+        if damage <= 0 or not (getattr(player, "dash_timer", 0) > 0 or getattr(player, "dash_strike_active_this_frame", False)):
             return killed_enemies
         hit_ids = getattr(player, "dash_strike_hit_ids", set())
         restore = getattr(player, "dash_strike_cooldown_restore", 0.0)
         for enemy in enemies:
             if not enemy.alive or id(enemy) in hit_ids or getattr(enemy, "type", None) == EnemyType.BOSS:
                 continue
-            if not player.rect.inflate(18, 18).colliderect(enemy.rect):
+            swept_hit = enemy.rect.inflate(player.rect.width + 18, player.rect.height + 18).clipline(
+                getattr(player, "dash_previous_center", player.rect.center), player.rect.center)
+            if not player.rect.inflate(18, 18).colliderect(enemy.rect) and not swept_hit:
                 continue
             hit_ids.add(id(enemy))
             momentum = getattr(player, "ninja_momentum", 0.0)
             total_damage = damage + int(damage * 0.55 * momentum)
             killed = enemy.take_damage(total_damage)
+            if hasattr(player, "trigger_sword_attack"):
+                player.trigger_sword_attack()
             player.grant_dash_refund(restore + 0.20 * momentum)
             self._spawn_ninja_shuriken(player, projectiles, enemy)
             if effects:
                 effects.damage_number(total_damage, enemy.rect.midtop, critical=False)
                 effects.ring(enemy.rect.center, radius=44, life=0.18, width=3)
+                if hasattr(effects, "slash"):
+                    slash_dir = getattr(player, "dash_direction", pygame.Vector2(1, 0))
+                    if slash_dir.length_squared() == 0:
+                        slash_dir = pygame.Vector2(1, 0)
+                    slash_dir = slash_dir.normalize()
+                    slash_side = pygame.Vector2(-slash_dir.y, slash_dir.x)
+                    center = pygame.Vector2(enemy.rect.center)
+                    effects.slash(center - slash_dir * 36 - slash_side * 24, center + slash_dir * 42 + slash_side * 24)
             if audio:
                 audio.play("hit")
             if killed:
                 killed_enemies.append(enemy)
+            elif getattr(player, "ninja_chain_active", False):
+                player.ninja_chain_active = False
+                player.dash_timer = 0.0
+                player.velocity.update(0, 0)
+        if killed_enemies and getattr(player, "ninja_dash_charges_enabled", False):
+            for enemy in killed_enemies:
+                if effects:
+                    center = pygame.Vector2(enemy.rect.center)
+                    side = pygame.Vector2(-player.dash_direction.y, player.dash_direction.x)
+                    effects.slash(center - side * 38, center + side * 38,
+                                  color=(213, 174, 255), life=0.22, width=9)
+                    effects.ring(center, color=(185, 125, 255), radius=58, life=0.20, width=3)
+                if feel:
+                    feel.hit_stop(0.060)
+            # One new leg per simulation frame; no charge spent and no hit-id reset.
+            player.ninja_chain_kills += len(killed_enemies) - 1
+            player.try_ninja_finisher_chain(enemies)
         return killed_enemies
 
     def _update_vampire_wounds(self, dt, enemies):
@@ -282,7 +391,10 @@ class CombatSystem:
                 if heal > 0 and gained > 0:
                     player.heal(heal + (1 if getattr(player, "vampire_feast_timer", 0) > 0 else 0))
                 if effects and gained:
-                    effects.message(f"BLOOD ORB +{gained}", player.rect.midtop)
+                    if hasattr(effects,'collect_pickup'):
+                        effects.collect_pickup('blood',gained,player.rect.center)
+                    else:
+                        effects.message(f"BLOOD ORB +{gained}", player.rect.midtop)
                 continue
             if distance <= attract_radius and distance > 0:
                 orb["vel"] += direction.normalize() * (520 + attract_radius * 1.5) * dt
@@ -505,9 +617,11 @@ class CombatSystem:
         burst_count = max(1, getattr(player, "engineer_gun_burst_count", 1))
         fired = 0
         target_ids = []
+        visual_directions = []
         for drone_index, origin in enumerate(origins[:drone_count]):
             target = in_range[min(drone_index, len(in_range) - 1)]
             target_ids.append(id(target))
+            visual_directions.append(pygame.Vector2(target.rect.center) - origin)
             for burst_index in range(burst_count):
                 direction = pygame.Vector2(target.rect.center) - origin
                 if direction.length_squared() == 0:
@@ -515,7 +629,7 @@ class CombatSystem:
                 if burst_count > 1:
                     direction = direction.rotate((burst_index - (burst_count - 1) / 2) * 4)
                 projectiles.append(
-                    Projectile(
+                    self._make_projectile(
                         origin.x,
                         origin.y,
                         direction,
@@ -532,6 +646,7 @@ class CombatSystem:
             return None
         player.engineer_helper_timer = max(0.34, getattr(player, "engineer_helper_cooldown", 1.65))
         player.engineer_drone_target_id = target_ids[0] if target_ids else None
+        player.engineer_drone_visual_directions = visual_directions
         player.engineer_drone_attack_flash = 0.18
         if effects:
             for origin in origins[:drone_count]:
@@ -562,8 +677,9 @@ class CombatSystem:
             player.engineer_airstrike_state = "telegraph"
             player.engineer_airstrike_timer = 0.85
             if effects:
-                effects.ring(target, color=(255, 70, 45), radius=getattr(player, "engineer_airstrike_radius", 160), life=0.85, width=4)
-                effects.message("AIRSTRIKE", target)
+                effects.airstrike_launch(target, getattr(player, "engineer_airstrike_radius", 160))
+            if audio:
+                audio.play("shoot")
             return killed_enemies
 
         if state != "telegraph":
@@ -577,18 +693,24 @@ class CombatSystem:
         radius = getattr(player, "engineer_airstrike_radius", 160)
         damage = getattr(player, "engineer_airstrike_damage", 110)
         if effects:
-            effects.ring(center, color=(255, 80, 45), radius=radius, life=0.42, width=6)
-            effects.message("SIEGE HIT", center)
+            effects.airstrike_impact(center, radius)
         if audio:
             audio.play("hit")
         for enemy in list(enemies):
             if not enemy.alive or getattr(enemy, "type", None) == EnemyType.BOSS:
                 continue
-            if center.distance_squared_to(enemy.rect.center) > radius * radius:
+            distance = center.distance_to(enemy.rect.center)
+            if distance > radius * 1.45:
                 continue
-            killed = enemy.take_damage(damage)
+            if distance <= radius * 0.42:
+                scaled_damage = damage
+            elif distance <= radius:
+                scaled_damage = max(1, int(damage * 0.55))
+            else:
+                scaled_damage = max(1, int(damage * 0.22))
+            killed = enemy.take_damage(scaled_damage)
             if effects:
-                effects.damage_number(damage, enemy.rect.midtop, critical=False)
+                effects.damage_number(scaled_damage, enemy.rect.midtop, critical=False)
             if killed:
                 killed_enemies.append(enemy)
         player.engineer_airstrike_state = "cooldown"
@@ -796,7 +918,7 @@ class CombatSystem:
         if direction.length_squared() == 0:
             direction = player.aim_direction
         projectiles.append(
-            Projectile(
+            self._make_projectile(
                 origin.x,
                 origin.y,
                 direction,
@@ -809,6 +931,19 @@ class CombatSystem:
         )
 
     def _reward_enemy_kill(self, player, enemy, enemy_bullets, reward_multiplier, loot_system, feel=None, effects=None, audio=None):
+        if getattr(enemy,'is_boss_guard',False):
+            if audio:
+                audio.play('enemy_death')
+            if effects:
+                effects.actor_death(enemy)
+            self._apply_vampire_kill_reward(player,enemy,effects)
+            return
+        if getattr(enemy,'is_boss_eye',False):
+            if audio:
+                audio.play('boss_eye_break')
+            if effects:
+                effects.ring(enemy.rect.center,color=(100,245,165),radius=65,life=.3,width=4)
+            return
         owner_id = id(enemy)
         for bullet in enemy_bullets:
             if getattr(bullet, "owner_id", None) == owner_id:
@@ -817,6 +952,10 @@ class CombatSystem:
             audio.play("enemy_death")
         if effects:
             effects.ring(enemy.rect.center, radius=62, life=0.30, width=4)
+            if enemy.type == EnemyType.CHASER:
+                effects.chaser_death(enemy)
+            else:
+                effects.actor_death(enemy)
         if enemy.type == EnemyType.BOSS:
             player.add_xp(BOSS_XP_REWARD)
             player.add_gold(BOSS_GOLD_REWARD)
@@ -826,7 +965,7 @@ class CombatSystem:
             xp = ENEMY_XP_REWARD * reward_multiplier * 5
             gold = ENEMY_GOLD_REWARD * reward_multiplier * 6
             if loot_system:
-                loot_system.spawn_enemy_rewards(enemy.rect.center, gold, xp)
+                loot_system.spawn_enemy_rewards(enemy.rect.center, gold, xp, enemy.type)
             else:
                 player.add_xp(xp)
                 player.add_gold(gold)
@@ -836,7 +975,7 @@ class CombatSystem:
             bonus_gold = LOOT_HIT_GOLD_REWARD * LOOT_ESCAPE_KILL_BONUS_MULTIPLIER
             bonus_xp = LOOT_HIT_XP_REWARD * LOOT_ESCAPE_KILL_BONUS_MULTIPLIER
             if loot_system:
-                loot_system.spawn_enemy_rewards(enemy.rect.center, bonus_gold, bonus_xp)
+                loot_system.spawn_enemy_rewards(enemy.rect.center, bonus_gold, bonus_xp, enemy.type)
             else:
                 player.add_xp(bonus_xp)
                 player.add_gold(bonus_gold)
@@ -848,7 +987,7 @@ class CombatSystem:
             xp = ENEMY_XP_REWARD * reward_multiplier
             gold = ENEMY_GOLD_REWARD * reward_multiplier
             if loot_system:
-                loot_system.spawn_enemy_rewards(enemy.rect.center, gold, xp)
+                loot_system.spawn_enemy_rewards(enemy.rect.center, gold, xp, enemy.type)
             else:
                 player.add_xp(xp)
                 player.add_gold(gold)

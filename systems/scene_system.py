@@ -1,4 +1,5 @@
 import pygame
+from systems.projectile_pool import clear_world_projectiles
 
 from settings import ROOMS_TO_BOSS
 
@@ -6,14 +7,15 @@ from game_state import GameState
 from entities.enemy import EnemyType
 from systems.room_system import RoomType, room_type_for_number
 from systems.room_layout import generate_room_obstacles
-from systems.room_bounds import current_room_bounds, reset_room_bounds
+from systems.room_bounds import HUB_ROOM_BOUNDS, current_room_bounds, reset_room_bounds, set_room_bounds
 
 
 def clear_active_enemies(game):
-    if hasattr(game, "horde"):
-        game.horde.pending.clear()
-        game.horde.enabled = False
-        game.horde.spatial_grid.clear()
+    horde = getattr(game, "horde", None)
+    if horde is not None:
+        horde.pending.clear()
+        horde.enabled = False
+        horde.spatial_grid.clear()
     if hasattr(game, "enemy_pool"):
         game.enemy_pool.release_many(game.enemies)
     game.enemies.clear()
@@ -32,12 +34,18 @@ def _carry_visit_counts(old_npcs, new_npcs):
 
 
 def _next_room_type_name(game):
+    stage = getattr(game, "stage", None)
+    if stage is not None and stage.rooms:
+        return stage.rooms[0].room_type.name
     return room_type_for_number(game.room_number).name
 
 
 def _refresh_npc_dialogues(game):
     room_type_name = _next_room_type_name(game)
     for npc in game.npcs:
+        if npc.role == "seer" and getattr(game, "stage", None) is not None:
+            npc.dialogue_id = "seer_stage"
+            continue
         if hasattr(npc, "greet"):
             npc.dialogue_id = npc.greet(
                 player=game.player,
@@ -50,7 +58,7 @@ def _refresh_npc_dialogues(game):
 def enter_hub(game):
     if hasattr(game, "prototype_room"):
         game.prototype_room.active = False
-    reset_room_bounds()
+    set_room_bounds(HUB_ROOM_BOUNDS)
     if hasattr(game, "dev_tools"):
         game.dev_tools.clear_scene_transition_state()
     _increment_npc_visits(game)
@@ -58,6 +66,8 @@ def enter_hub(game):
 
     game.state = GameState.HUB
     game.player.move_to_hub_spawn()
+    if hasattr(game.player, "reset_ninja_scene_state"):
+        game.player.reset_ninja_scene_state()
     if hasattr(game.player, "reset_engineer_scene_state"):
         game.player.reset_engineer_scene_state()
     if hasattr(game.player, "reset_vampire_scene_state"):
@@ -70,19 +80,21 @@ def enter_hub(game):
     if hasattr(game, "room_flow"):
         game.room_flow.clear_scene()
     clear_active_enemies(game)
-    game.projectiles.clear()
+    clear_world_projectiles(game)
     game.enemy_bullets.clear()
     if hasattr(game, "loot"):
         game.loot.reset()
     game.events.emit("state_hub")
     bounds = current_room_bounds()
 
+    game.portal_rect = game.prefabs.spawn_prefab("portal_hub", x=bounds.centerx - 45, y=bounds.centery - 265)
+
     game.npcs = [
-        game.prefabs.spawn_prefab("npc_blacksmith", x=bounds.centerx - 150, y=bounds.centery),
-        game.prefabs.spawn_prefab("npc_healer", x=bounds.centerx + 150, y=bounds.centery),
-        game.prefabs.spawn_prefab("npc_gatekeeper", x=bounds.centerx, y=bounds.centery - 120),
-        game.prefabs.spawn_prefab("npc_seer", x=bounds.centerx - 150, y=bounds.centery + 150),
-        game.prefabs.spawn_prefab("npc_tea_vendor", x=bounds.centerx + 150, y=bounds.centery + 150),
+        game.prefabs.spawn_prefab("npc_blacksmith", x=bounds.centerx - 310, y=bounds.centery - 35),
+        game.prefabs.spawn_prefab("npc_healer", x=bounds.centerx + 250, y=bounds.centery - 35),
+        game.prefabs.spawn_prefab("npc_gatekeeper", x=bounds.centerx - 23, y=bounds.centery - 188),
+        game.prefabs.spawn_prefab("npc_seer", x=bounds.centerx - 255, y=bounds.centery + 185),
+        game.prefabs.spawn_prefab("npc_tea_vendor", x=bounds.centerx + 205, y=bounds.centery + 185),
     ]
 
     _carry_visit_counts(old_npcs, game.npcs)
@@ -105,6 +117,8 @@ def enter_room(game):
     game.state = GameState.ROOM
     game.player.cancel_tea()
     game.player.move_to_room_spawn()
+    if hasattr(game.player, "reset_ninja_scene_state"):
+        game.player.reset_ninja_scene_state()
     if hasattr(game.player, "reset_engineer_scene_state"):
         game.player.reset_engineer_scene_state()
     if hasattr(game.player, "reset_vampire_scene_state"):
@@ -112,7 +126,7 @@ def enter_room(game):
     game.camera.reset(game.player.rect)
     game.dialogue.close()
     clear_active_enemies(game)
-    game.projectiles.clear()
+    clear_world_projectiles(game)
     game.enemy_bullets.clear()
     if hasattr(game, "loot"):
         game.loot.reset()
@@ -171,13 +185,15 @@ def enter_boss(game):
     if hasattr(game, "room_flow"):
         game.room_flow.clear_scene()
     game.player.move_to_room_spawn()
+    if hasattr(game.player, "reset_ninja_scene_state"):
+        game.player.reset_ninja_scene_state()
     if hasattr(game.player, "reset_engineer_scene_state"):
         game.player.reset_engineer_scene_state()
     if hasattr(game.player, "reset_vampire_scene_state"):
         game.player.reset_vampire_scene_state()
     game.camera.reset(game.player.rect)
     clear_active_enemies(game)
-    game.projectiles.clear()
+    clear_world_projectiles(game)
     game.enemy_bullets.clear()
     if hasattr(game, "loot"):
         game.loot.reset()

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Engineer: Blade Drone - درون مركزي وشفرة تدور في مدار -->
+  <circle cx="128" cy="128" r="116" fill="none" stroke="#32DCF0" stroke-opacity="0.12" stroke-width="8"/>
+  <circle cx="128" cy="128" r="110" fill="none" stroke="#32DCF0" stroke-opacity="0.25" stroke-width="5"/>
+  <circle cx="128" cy="128" r="104" fill="#0E101C"/>
+  <circle cx="128" cy="128" r="94" fill="#151A30"/>
+  <circle cx="128" cy="128" r="104" fill="none" stroke="#32DCF0" stroke-width="6"/>
+
+  <!-- المدار -->
+  <circle cx="128" cy="128" r="62" fill="none" stroke="#32DCF0" stroke-opacity="0.55" stroke-width="5" stroke-dasharray="14 12" stroke-linecap="round"/>
+
+  <!-- جسم الدرون: سداسي -->
+  <polygon points="128,98 154,113 154,143 128,158 102,143 102,113" fill="#32DCF0" stroke="#B8F6FF" stroke-width="6" stroke-linejoin="round"/>
+  <circle cx="128" cy="128" r="9" fill="#0E101C"/>
+  <circle cx="128" cy="128" r="4" fill="#B8F6FF"/>
+
+  <!-- الشفرة على المدار -->
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M178 62 L214 72 L196 104 L184 88 Z" fill="#B8F6FF" stroke="#32DCF0" stroke-width="6"/>
+    <path d="M78 194 L42 184 L60 152 L72 168 Z" fill="#32DCF0" fill-opacity="0.35" stroke="#32DCF0" stroke-opacity="0.6" stroke-width="5"/>
+  </g>
+  <circle cx="200" cy="76" r="4" fill="#FFFFFF" fill-opacity="0.9"/>
+</svg>

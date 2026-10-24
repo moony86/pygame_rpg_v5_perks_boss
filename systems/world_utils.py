@@ -5,6 +5,7 @@ import pygame
 from settings import INTERACTION_DISTANCE, AIM_ASSIST_RANGE, SCREEN_WIDTH, SCREEN_HEIGHT
 from systems.room_system import RoomType
 from systems.room_bounds import current_room_bounds
+from systems.environment_art import draw_environment
 
 
 def rotate_vector(vec, degrees):
@@ -38,7 +39,7 @@ def nearest_enemy(player, enemies, max_range=AIM_ASSIST_RANGE):
     best = None
     best_d = max_range
     for enemy in enemies:
-        if not enemy.alive:
+        if not enemy.alive or (getattr(enemy,'encounter',None) and enemy.encounter.airborne):
             continue
         d = distance_between(player.rect, enemy.rect)
         if d < best_d:
@@ -53,10 +54,12 @@ def draw_world_background(screen, camera, hub=False, room_type=None, profiler=No
         screen.fill((8, 9, 14))
     bounds = current_room_bounds()
     world_rect = bounds.rect
+    if not hub and draw_environment(screen, camera, world_rect):
+        return
 
     if hub:
-        bg = (28, 34, 34)
-        grid_col = (48, 58, 58)
+        bg = (24, 36, 34)
+        grid_col = (48, 68, 64)
     elif room_type == RoomType.CURSE:
         bg = (33, 22, 42)
         grid_col = (58, 42, 70)
@@ -105,17 +108,30 @@ def draw_world_background(screen, camera, hub=False, room_type=None, profiler=No
                 camera.apply_pos(pygame.Vector2(visible.right, y)),
                 1,
             )
+    if hub:
+        with section("hub safe-zone draw"):
+            center = camera.apply_pos(pygame.Vector2(bounds.center))
+            cx, cy = round(center.x), round(center.y)
+            pygame.draw.circle(screen, (55, 92, 80), (cx, cy), 310, 3)
+            pygame.draw.circle(screen, (76, 122, 105), (cx, cy), 150, 2)
+            for angle in range(0, 360, 45):
+                spoke = pygame.Vector2(260, 0).rotate(angle)
+                end = pygame.Vector2(cx, cy) + spoke
+                pygame.draw.line(screen, (45, 76, 68), (cx, cy), (round(end.x), round(end.y)), 1)
+    draw_edge_warning = bounds.width > SCREEN_WIDTH or bounds.height > SCREEN_HEIGHT
     edge_warning_rects = [
         pygame.Rect(bounds.left, bounds.top, bounds.width, 76),
         pygame.Rect(bounds.left, bounds.bottom - 76, bounds.width, 76),
         pygame.Rect(bounds.left, bounds.top, 76, bounds.height),
         pygame.Rect(bounds.right - 76, bounds.top, 76, bounds.height),
-    ]
+    ] if draw_edge_warning else []
     with section("world edge draw"):
         for edge_rect in edge_warning_rects:
             if edge_rect.colliderect(visible):
                 pygame.draw.rect(screen, (70, 18, 16), camera.apply_rect(edge_rect))
 
         border_rect = camera.apply_rect(world_rect)
-        pygame.draw.rect(screen, (255, 54, 38), border_rect, 12)
-        pygame.draw.rect(screen, (255, 210, 48), border_rect.inflate(-28, -28), 4)
+        border_outer = (58, 108, 94) if hub else (255, 54, 38)
+        border_inner = (105, 178, 150) if hub else (255, 210, 48)
+        pygame.draw.rect(screen, border_outer, border_rect, 12)
+        pygame.draw.rect(screen, border_inner, border_rect.inflate(-28, -28), 4)

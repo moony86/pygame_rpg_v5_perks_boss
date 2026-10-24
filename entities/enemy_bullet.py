@@ -1,6 +1,7 @@
 import pygame
 from settings import ENEMY_BULLET_SPEED, ENEMY_BULLET_LIFETIME, ORANGE
 from systems.asset_loader import load_image
+from systems.object_catalog import sprite as visual_sprite, definition as visual_definition
 
 
 class EnemyBullet:
@@ -25,6 +26,9 @@ class EnemyBullet:
         self.homing_target  = homing_target
         self.turn_rate      = turn_rate
         self.owner_id       = owner_id
+        self.visual_trail = []
+        self.visual_style = None
+        self.parryable = False
 
         if EnemyBullet._enemy_bullet_image is None:
             EnemyBullet._enemy_bullet_image = load_image("E-bullet.png")
@@ -42,6 +46,8 @@ class EnemyBullet:
                     self.direction = self.direction.normalize()
 
         self.pos         += self.direction * self.speed * dt
+        from systems.shot_presentation import record_trail
+        record_trail(self,dt)
         self.rect.center  = (round(self.pos.x), round(self.pos.y))
         self.remaining_life -= dt
         if self.remaining_life <= 0:
@@ -51,6 +57,15 @@ class EnemyBullet:
         self.alive = False
 
     def draw(self, surface, camera):
+        from systems.shot_presentation import draw_trail,visible
+        if not visible(surface,camera,self):
+            return
+        draw_trail(surface,camera,self)
+        key = 'bullet_parry_orb' if self.parryable else 'bullet_homing' if self.turn_rate > 0 else 'bullet_enemy'
+        art = visual_sprite(key,frame=int(pygame.time.get_ticks()/1000*visual_definition(key)['fps']))
+        if art is not None:
+            surface.blit(art,art.get_rect(center=camera.apply_pos(self.pos)))
+            return
         if self._draw_sprite(surface, camera):
             return
 
@@ -127,6 +142,13 @@ class FallingEnemyBullet:
             pygame.draw.line(surface, (160, 0, 0), (px, py - 8), (px, py + 8), 1)
             return
 
-        pygame.draw.line(surface, (255, 70, 70), (px, py - 80), (px, py), 4)
+        from systems.shot_presentation import transformed
+        tail=transformed('fx_trail_hostile',(80,12),-90)
+        if tail is not None:
+            surface.blit(tail,tail.get_rect(center=(px,py-35)))
+        art = visual_sprite('bullet_falling')
+        if art is not None:
+            surface.blit(art,art.get_rect(center=(px,py)))
+            return
         pygame.draw.circle(surface, (255, 210, 90), (px, py), self.radius)
         pygame.draw.circle(surface, (180, 20, 20), (px, py), self.radius - 5)

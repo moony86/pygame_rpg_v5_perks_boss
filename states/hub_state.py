@@ -5,7 +5,6 @@ from settings import ROOMS_TO_BOSS
 def should_enter_boss(room_number):
     return room_number == ROOMS_TO_BOSS + 1
 from systems.world_utils import nearest_npc
-from systems.scene_system import enter_room, enter_boss
 
 def handle_hub_events (game, event):
     if event.key == pygame.K_e:
@@ -22,10 +21,8 @@ def handle_hub_events (game, event):
                 game.gatekeeper_ready = False
                 if hasattr(game, "stage"):
                     game.stage.start_stage()
-                elif should_enter_boss(game.room_number):
-                    enter_boss(game)
                 else:
-                    enter_room(game)
+                    game.message = "Stage system unavailable."
             elif npc.role == "tea_vendor":
                 game.gatekeeper_ready = False
                 game.player.receive_tea()

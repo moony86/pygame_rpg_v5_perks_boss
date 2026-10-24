@@ -1,4 +1,5 @@
 import random
+from systems.object_catalog import definition as object_definition
 
 from definitions.perk_definitions import PERK_DEFINITIONS, PERK_SYNERGY_PAIRS
 from settings import PERK_PICK_LIMIT
@@ -191,6 +192,8 @@ def add_dash_strike(player, damage=0, cooldown_restore=0.0, refund_cap=0.0):
     player.dash_strike_cooldown_restore = max(getattr(player, "dash_strike_cooldown_restore", 0.0), cooldown_restore)
     player.dash_refund_cap = max(getattr(player, "dash_refund_cap", 0.0), refund_cap)
     player.ninja_momentum_enabled = True
+    if hasattr(player, "enable_ninja_dash_charges"):
+        player.enable_ninja_dash_charges()
 
 
 def add_ninja_momentum(player, gain=0.0, max_momentum=0.0):
@@ -204,6 +207,14 @@ def add_shadow_shuriken(player, damage=0, speed=0, refund_cap=0.0):
     player.ninja_shuriken_speed = max(getattr(player, "ninja_shuriken_speed", 0), speed)
     add_ninja_momentum(player, gain=0.15, max_momentum=1.0)
     add_dash_strike(player, cooldown_restore=0.22, refund_cap=refund_cap)
+
+
+def apply_starter_build_loadout(player, build):
+    if build == "Ninja" and hasattr(player, "switch_weapon"):
+        if hasattr(player, "enable_ninja_dash_charges"):
+            player.enable_ninja_dash_charges()
+        player.switch_weapon("pistol")
+        player.last_upgrade_text = "Ninja: dash charges unlocked (Pistol demo)"
 
 
 PERK_EFFECTS = {
@@ -257,7 +268,7 @@ PERK_EFFECTS = {
         chain(add_attr("speed", 70), lambda player: add_ninja_momentum(player, gain=0.18, max_momentum=1.0), lambda player: add_dash_strike(player, damage=34, cooldown_restore=0.65, refund_cap=1.4), lambda player: setattr(player, "dash_cooldown_timer", 0.0)),
     ),
     "phantom_step": (
-        chain(add_attr("speed", 20), lambda player: add_ninja_momentum(player, gain=0.10, max_momentum=0.9), lambda player: add_dash_strike(player, damage=24, cooldown_restore=0.18, refund_cap=1.0), lambda player: reduce_max_health(player, 20)),
+        chain(add_attr("speed", 20), lambda player: add_ninja_momentum(player, gain=0.10, max_momentum=0.9), lambda player: add_dash_strike(player, damage=object_definition('sword')['dash_damage'], cooldown_restore=0.18, refund_cap=1.0), lambda player: reduce_max_health(player, 20)),
         chain(add_attr("speed", 50), lambda player: add_ninja_momentum(player, gain=0.16, max_momentum=1.0), lambda player: add_dash_strike(player, damage=48, cooldown_restore=0.85, refund_cap=1.6), lambda player: setattr(player, "dash_invuln_bonus", getattr(player, "dash_invuln_bonus", 0.0) + 0.20)),
     ),
     "shadow_shuriken": (
@@ -337,9 +348,9 @@ def _synergy_label(new_perk, player):
 
     new_tags = set(new_perk.get("tags", []))
     for tag_a, tag_b, label in _SYNERGY_PAIRS:
-        if new_tags & tag_a and taken_tags & tag_b:
+        if tag_a <= new_tags and tag_b <= taken_tags:
             return f"{preferred_build.upper()} {label}"
-        if new_tags & tag_b and taken_tags & tag_a:
+        if tag_b <= new_tags and tag_a <= taken_tags:
             return f"{preferred_build.upper()} {label}"
     return ""
 
@@ -527,6 +538,7 @@ class PerkSystem:
         if getattr(player, "starter_choice_active", False):
             build = perk.get("build", "")
             player.starter_build = build if build in OFFICIAL_STARTER_BUILDS else ""
+            apply_starter_build_loadout(player, player.starter_build)
             player.starter_choice_active = False
             player.starter_missing_build = ""
         player.perk_choices_made = getattr(player, "perk_choices_made", 0) + 1

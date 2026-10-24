@@ -9,6 +9,11 @@ class CombatActionResolver:
     def handle(self, action, game):
         action_type = action["type"]
 
+        if action_type == 'boss_trial':
+            action['encounter'].arena_solids=tuple(game.collision.get_colliders())
+            action['encounter'].resolve(action,game.enemies,game.enemy_bullets,game.effects,game.audio,game.player)
+            return
+
         if action_type == "enemy_shoot":
             base_damage = int(ENEMY_BULLET_DAMAGE * action.get("damage_multiplier", 1.0))
             speed = 410 + int(action.get("difficulty", 1.0) * 12)

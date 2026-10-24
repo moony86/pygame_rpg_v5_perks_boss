@@ -1,6 +1,7 @@
 import pygame
 from settings import PROJECTILE_LIFETIME, YELLOW, PROJECTILE_SPEED
 from systems.asset_loader import load_image
+from systems.object_catalog import sprite as visual_sprite, definition as visual_definition
 
 
 class Projectile:
@@ -45,6 +46,10 @@ class Projectile:
         self.alive           = True
         self.hit_ids         = set()
         self.anim_time       = 0.0
+        self.visual_trail = []
+        self.visual_style = None
+        self._body_signature = None
+        self._body_image = None
 
         if Projectile._bullet_image is None:
             Projectile._bullet_image = load_image("bullet.png")
@@ -52,6 +57,8 @@ class Projectile:
     def update(self, dt):
         self.previous_pos = self.pos.copy()
         self.pos += self.direction * self.speed * dt
+        from systems.shot_presentation import record_trail
+        record_trail(self,dt)
         self.rect.center  = (round(self.pos.x), round(self.pos.y))
         self.remaining_life -= dt
         self.anim_time += dt
@@ -72,6 +79,30 @@ class Projectile:
         self.alive = False
 
     def draw(self, surface, camera):
+        from systems.shot_presentation import draw_trail,visible
+        if not visible(surface,camera,self):
+            return
+        draw_trail(surface,camera,self)
+        key = ('bullet_drone' if self.source == 'engineer_drone' else
+               'bullet_shuriken' if self.source == 'ninja_shuriken' else
+               'bullet_explosive' if self.explosive else
+               'bullet_drone' if self.visual_style == 'magic' else
+               'bullet_critical' if self.critical else 'bullet_player')
+        from systems.object_catalog import revision
+        config=visual_definition(key)
+        frame=int(pygame.time.get_ticks()/1000*config['fps'])%config['frames']
+        signature=(key,frame,self.direction.x,self.direction.y,revision())
+        if signature==self._body_signature:
+            art=self._body_image
+        else:
+            art=visual_sprite(key,frame=frame)
+            if art is not None:
+                art=pygame.transform.rotate(art,-self.direction.as_polar()[1])
+            self._body_signature=signature
+            self._body_image=art
+        if art is not None:
+            surface.blit(art,art.get_rect(center=camera.apply_pos(self.pos)))
+            return
         if self._draw_sprite(surface, camera):
             return
 

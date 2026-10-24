@@ -4,6 +4,7 @@ import pygame
 
 from systems.room_bounds import current_room_bounds
 from systems.asset_loader import load_sheet_frames
+from systems.object_catalog import draw_object
 
 
 PICKUP_SIZE = (32, 32)
@@ -29,6 +30,7 @@ class Pickup:
         self.rect = pygame.Rect(0, 0, *PICKUP_SIZE)
         self.rect.center = (round(x), round(y))
         self.pos = pygame.Vector2(self.rect.center)
+        self.previous_pos = self.pos.copy()
         angle = random.uniform(0, 360)
         speed = random.uniform(95, 180)
         self.velocity = pygame.Vector2(1, 0).rotate(angle) * speed
@@ -40,6 +42,8 @@ class Pickup:
 
     @classmethod
     def frames_for(cls, pickup_type):
+        if pickup_type not in ("gold", "xp"):
+            return []
         if pickup_type not in cls._frames:
             filename = "coin.png" if pickup_type == "gold" else "xp.png"
             cls._frames[pickup_type] = load_sheet_frames(
@@ -51,6 +55,7 @@ class Pickup:
         return cls._frames[pickup_type]
 
     def update(self, dt, player, magnet_radius):
+        self.previous_pos = self.pos.copy()
         self.age += dt
         player_center = pygame.Vector2(player.rect.center)
         to_player = player_center - self.pos
@@ -101,12 +106,65 @@ class Pickup:
         return False
 
     def draw(self, surface, camera):
+        if self.pickup_type in ('gold','xp') and self.magnetized_time>0:
+            from systems.pickup_presentation import draw_magnet_trail
+            draw_magnet_trail(surface,camera,self)
         screen_rect = camera.apply_rect(self.rect)
+        if self.pickup_type == 'gold':
+            from systems.object_catalog import sprite, definition
+            art = sprite('visual_gold',frame=int(self.age*definition('visual_gold')['fps']))
+            if art is not None:
+                surface.blit(art,art.get_rect(center=screen_rect.center))
+                return
+        if self.pickup_type == 'xp':
+            from systems.object_catalog import sprite, definition
+            tier = self.tier_id if self.tier_id and self.tier_id.startswith('xp_tier_') else 'xp_tier_1'
+            art = sprite('visual_'+tier,frame=int(self.age*definition('visual_'+tier)['fps']))
+            if art is not None:
+                surface.blit(art,art.get_rect(center=screen_rect.center))
+                return
+        if self.pickup_type in ('heal_potion', 'time_stop') and draw_object(surface, self.pickup_type, screen_rect.center, self.age):
+            return
         frames = self.frames_for(self.pickup_type)
         if frames:
             frame_index = int(self.age * PICKUP_ANIMATION_FPS) % len(frames)
             frame = frames[frame_index]
             surface.blit(frame, frame.get_rect(center=screen_rect.center))
+            return
+
+        if self.pickup_type == "heal_potion":
+            pulse = 1.0 + 0.10 * abs(pygame.math.Vector2(1, 0).rotate(self.age * 220).x)
+            if self.value <= 15:
+                fill_col, neck_col, aura_col = (95, 220, 105), (255, 150, 150), (30, 80, 36)
+            elif self.value <= 25:
+                fill_col, neck_col, aura_col = (70, 235, 135), (255, 115, 130), (28, 85, 42)
+            else:
+                fill_col, neck_col, aura_col = (55, 250, 170), (255, 75, 105), (18, 95, 55)
+            pygame.draw.circle(surface, aura_col, screen_rect.center, round(screen_rect.width * 0.58 * pulse))
+            bottle = screen_rect.inflate(-10, -6)
+            neck = pygame.Rect(0, 0, max(8, screen_rect.width // 3), 9)
+            neck.midbottom = (screen_rect.centerx, bottle.top + 5)
+            pygame.draw.rect(surface, neck_col, neck, border_radius=3)
+            pygame.draw.rect(surface, fill_col, bottle, border_radius=7)
+            pygame.draw.rect(surface, (25, 120, 60), bottle, 2, border_radius=7)
+            heart = [
+                (screen_rect.centerx, screen_rect.centery + 7),
+                (screen_rect.centerx - 9, screen_rect.centery - 1),
+                (screen_rect.centerx - 5, screen_rect.centery - 8),
+                (screen_rect.centerx, screen_rect.centery - 4),
+                (screen_rect.centerx + 5, screen_rect.centery - 8),
+                (screen_rect.centerx + 9, screen_rect.centery - 1),
+            ]
+            pygame.draw.polygon(surface, (255, 245, 245), heart)
+            pygame.draw.line(surface, (255, 95, 110), (screen_rect.centerx - 6, screen_rect.centery), (screen_rect.centerx + 6, screen_rect.centery), 2)
+            pygame.draw.line(surface, (255, 95, 110), (screen_rect.centerx, screen_rect.centery - 6), (screen_rect.centerx, screen_rect.centery + 6), 2)
+            return
+        if self.pickup_type == "time_stop":
+            color = (120, 210, 255)
+            pygame.draw.circle(surface, (16, 34, 70), screen_rect.center, max(5, screen_rect.width // 2))
+            pygame.draw.circle(surface, color, screen_rect.center, max(4, screen_rect.width // 2 - 5), 2)
+            pygame.draw.line(surface, color, screen_rect.center, (screen_rect.centerx, screen_rect.centery - 8), 2)
+            pygame.draw.line(surface, color, screen_rect.center, (screen_rect.centerx + 7, screen_rect.centery + 4), 2)
             return
 
         color = (255, 215, 80) if self.pickup_type == "gold" else (110, 220, 255)

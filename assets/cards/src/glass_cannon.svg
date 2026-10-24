@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Shared/Vampire: Blood Pact - ماسة زجاجية متشققة وبداخلها قطرة دم -->
+  <circle cx="128" cy="128" r="116" fill="none" stroke="#006EFF" stroke-opacity="0.12" stroke-width="8"/>
+  <circle cx="128" cy="128" r="110" fill="none" stroke="#006EFF" stroke-opacity="0.25" stroke-width="5"/>
+  <circle cx="128" cy="128" r="104" fill="#0E101C"/>
+  <circle cx="128" cy="128" r="94" fill="#151A30"/>
+  <circle cx="128" cy="128" r="104" fill="none" stroke="#006EFF" stroke-width="6"/>
+
+  <!-- الماسة -->
+  <polygon points="128,56 188,128 128,200 68,128" fill="#006EFF" fill-opacity="0.35" stroke="#9CC4FF" stroke-width="8" stroke-linejoin="round"/>
+
+  <!-- شق الزجاج -->
+  <polyline points="128,56 118,96 136,116 120,150 128,200" fill="none" stroke="#9CC4FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.85"/>
+
+  <!-- قطرة الدم -->
+  <path d="M146 112 C146 112 126 136 126 150 A20 20 0 0 0 166 150 C166 136 146 112 146 112 Z"
+        fill="#DC3737" stroke="#FF9A9A" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M138 142 Q139 134 144 128" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="4" stroke-linecap="round"/>
+</svg>

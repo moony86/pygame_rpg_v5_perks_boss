@@ -11,7 +11,8 @@ from settings import (
 )
 
 from entities.projectile import Projectile
-
+from systems.projectile_pool import ProjectilePool
+from systems.object_catalog import definition as object_definition
 
 def rotate_vector(vec, degrees):
     radians = math.radians(degrees)
@@ -36,17 +37,23 @@ class ShootingSystem:
     def __init__(self):
         self.shoot_timer = 0.0
         self.last_fire_interval = None
+        self.projectile_pool = ProjectilePool(250)
 
     def reset(self):
         self.shoot_timer = 0.0
         self.last_fire_interval = None
+        self.projectile_pool.reset()
 
     def update(self, dt):
         self.shoot_timer = max(0, self.shoot_timer - dt)
 
     def try_shoot(self, player, projectiles, audio=None):
+        if (getattr(player, "ninja_dash_charges_enabled", False)
+                and getattr(player, "dash_strike_damage", 0) > 0
+                and getattr(player, "dash_timer", 0) > 0):
+            return False
         fire_multiplier = player.fire_rate_multiplier * (SURGE_FIRE_RATE_MULTIPLIER if getattr(player, "surge_timer", 0) > 0 else 1.0)
-        fire_interval = max(0.055, SHOOT_COOLDOWN / fire_multiplier)
+        fire_interval = max(0.055, object_definition('pistol')['cooldown'] / fire_multiplier)
         if self.last_fire_interval is None:
             self.last_fire_interval = fire_interval
         elif abs(fire_interval - self.last_fire_interval) > 0.0001:
@@ -61,8 +68,8 @@ class ShootingSystem:
         if getattr(player, "vampire_blood", 0) > 0:
             blood_bonus += min(0.35, getattr(player, "vampire_blood", 0) * getattr(player, "vampire_blood_damage_bonus", 0.0))
         blood_moon_bonus = 1.15 if getattr(player, "vampire_blood_moon_timer", 0) > 0 else 1.0
-        base_damage = int((PROJECTILE_DAMAGE + player.damage_bonus) * getattr(player, "weapon_damage_multiplier", 1.0) * surge_damage * blood_bonus * blood_moon_bonus)
-        speed = PROJECTILE_SPEED + player.projectile_speed_bonus
+        base_damage = int((object_definition('pistol')['damage'] + player.damage_bonus) * getattr(player, "weapon_damage_multiplier", 1.0) * surge_damage * blood_bonus * blood_moon_bonus)
+        speed = object_definition('pistol')['projectile_speed'] + player.projectile_speed_bonus
         count = player.projectile_count
         split_damage_scale = getattr(player, "split_damage_multiplier", 1.0)
         if count > 1:
@@ -77,30 +84,29 @@ class ShootingSystem:
             step = total / max(1, count - 1)
             angles = [start + i * step for i in range(count)]
 
+        if hasattr(player, "trigger_gun_shot"):
+            player.trigger_gun_shot()
+        muzzle = player.weapon_muzzle_position()
         for angle in angles:
             direction = rotate_vector(player.aim_direction, angle)
             critical = random.random() < crit_chance
             damage = max(1, int(base_damage * split_damage_scale * (crit_multiplier if critical else 1)))
-            muzzle = player.weapon_muzzle_position()
 
-            projectiles.append(
-                Projectile(
-                    muzzle.x,
-                    muzzle.y,
-                    direction,
-                    damage,
-                    speed=speed,
-                    pierce=player.pierce,
-                    critical=critical,
-                    knockback=PROJECTILE_KNOCKBACK * getattr(player, "knockback_power", 1.0),
-                    explosive=getattr(player, "explosive_rounds", False),
-                    explosion_radius=getattr(player, "explosion_radius", 95),
-                    explosion_splash_ratio=getattr(player, "explosion_splash_ratio", 1 / 3),
-                )
+            new_proj = self.projectile_pool.acquire(
+                muzzle.x,
+                muzzle.y,
+                direction,
+                damage,
+                speed=speed,
+                pierce=player.pierce,
+                critical=critical,
+                knockback=PROJECTILE_KNOCKBACK * getattr(player, "knockback_power", 1.0),
+                explosive=getattr(player, "explosive_rounds", False),
+                explosion_radius=getattr(player, "explosion_radius", 95),
+                explosion_splash_ratio=getattr(player, "explosion_splash_ratio", 1 / 3),
             )
-
-        if hasattr(player, "trigger_gun_shot"):
-            player.trigger_gun_shot()
+            new_proj.visual_style='fire' if getattr(player,'explosive_rounds',False) else 'magic' if getattr(player,'surge_timer',0)>0 else None
+            projectiles.append(new_proj)
 
         if audio:
             audio.play("shoot")

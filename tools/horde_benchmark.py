@@ -50,7 +50,8 @@ def run_case(label, enemy_count, build_name="Base", frames=180):
     game.room_flow.countdown_timer = 0.0
     game.room_flow.active = False
     apply_build(game, build_name)
-    game.horde.spawn_test(game, enemy_count)
+    horde = game.ensure_horde()
+    horde.spawn_test(game, enemy_count)
     frame_ms = []
     for frame in range(frames):
         start = perf_counter()
@@ -59,7 +60,7 @@ def run_case(label, enemy_count, build_name="Base", frames=180):
         game.update(1 / 60)
         game.draw()
         frame_ms.append((perf_counter() - start) * 1000.0)
-    metrics = game.horde.last_metrics.copy()
+    metrics = horde.last_metrics.copy()
     avg_ms = sum(frame_ms) / len(frame_ms)
     p95 = sorted(frame_ms)[min(len(frame_ms) - 1, int(len(frame_ms) * 0.95))]
     result = {

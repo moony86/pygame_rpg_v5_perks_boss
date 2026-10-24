@@ -1,0 +1,13 @@
+{
+  "mode": "built-in image_gen",
+  "assets": [
+    {
+      "path": "assets/visuals/companion_sentry_v2.png",
+      "prompt": "Use case: stylized-concept. Asset type: single transparent in-game companion sprite for a dark dungeon pixel-art action roguelike. Primary request: a compact cyan and gunmetal hovering SHOOTER DRONE with two small rounded side thrusters and a large clearly visible underslung twin-barrel sentry gun pointing RIGHT. Top-down three-quarter view matching the inspected cyan steel blade drone and orange bomber card assets. Chunky crisp 32-bit pixel art, hard pixel clusters, strong dark outline, silver highlights, cyan core. The two long dark gun barrels and their silver muzzle openings must dominate its lower-right silhouette, readable when the entire sprite is only 46 pixels wide. Isolated one complete object centered with generous transparent margin. No blades, no bombs, no ground, no cast shadow, no text, no border, no card, no muzzle flash. Genuine transparent alpha background."
+    }
+  ],
+  "reused": [
+    "assets/cards/art_v2/blade_drone.png",
+    "assets/cards/art_v2/bomber_drone.png"
+  ]
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="editor-token" content="__EDITOR_TOKEN__"><title>Cube — Level Studio</title>
+<link rel="stylesheet" href="/editor.css">
+<link rel="stylesheet" href="/objects.css">
+<style>#objectList{max-height:65vh;overflow:auto;align-self:start;position:sticky;top:86px;flex-wrap:nowrap}#objectList input,#objectList select{flex-shrink:0}#objectList button{flex-shrink:0}input[type=color]{height:40px;padding:3px}#objectPreview{max-height:420px;object-fit:contain}.objectHeader{position:sticky;top:-24px;background:#101c27;z-index:5;padding:12px 0}#objectPreview{direction:ltr}@media(max-width:600px){#objectList{max-height:230px;position:static}#visualCategory,#visualSearch{grid-column:1/-1}}</style>
+<header><div><b>CUBE <span>LEVEL STUDIO</span></b><small>محرر مراحل محلي · النسخة المكتبية</small></div>
+<nav><button id="objects">العناصر والأصول</button><button id="undo">↶ تراجع</button><button id="redo">↷ إعادة</button><button id="validate">فحص</button><button id="save">حفظ للعبة</button><button class="primary" id="play">▶ حفظ وتجربة الغرفة</button></nav></header>
+<main><aside><label>اسم المرحلة<input id="stageName"></label><div class="tabs"><button id="roomTab" class="active">الغرفة</button><button id="routeTab">مسار المرحلة</button></div>
+<h3>غرف المرحلة</h3><div id="rooms"></div><div class="row"><button id="addRoom">+ غرفة</button><button id="deleteRoom">حذف الغرفة</button></div>
+<h3>أدوات الرسم</h3><div id="tools"><button data-tool="select" class="active">↖ تحديد / سحب</button><button data-tool="cover">▰ رسم حاجز</button><button data-tool="pickup">◉ نقطة مكافأة</button></div>
+<label>العنصر المراد وضعه<select id="pickupKind"><option value="dash_refresh">بلورة اندفاع</option><option value="heal_potion">بوشن صحة</option><option value="time_stop">إيقاف الوقت</option></select></label>
+<label class="check"><input id="snap" type="checkbox" checked> محاذاة 20px</label><label class="check"><input id="grid" type="checkbox"> إظهار الشبكة</label>
+<div class="row"><button id="duplicate">نسخ العنصر</button><button id="delete">حذف العنصر</button></div>
+<p class="hint">اسحب الحاجز أو الباب أو نقطة المكافأة. اسحب المقبض لتغيير الحجم. Delete للحذف · Ctrl+Z للتراجع · Ctrl+S للحفظ.</p>
+<footer><button id="export">تصدير JSON</button><label class="file">استيراد JSON<input id="import" type="file" accept=".json"></label><button id="reset">استعادة قالب البداية</button></footer></aside>
+<section class="viewport"><div class="sceneTitle"><div><small id="modeTitle">ROOM LAYOUT</small><h2 id="title">الحلبة</h2></div><span id="dimensions">1920 × 1080</span></div><div class="canvasWrap"><canvas id="canvas" width="1920" height="1080" aria-label="محرر الخريطة"></canvas></div><p id="help">المشهد هو ما سيظهر في اللعبة. الإطارات الملونة أدوات تحرير فقط.</p><div id="status" role="status">جاري التحميل…</div></section>
+<aside class="inspector"><h3>خصائص الغرفة</h3><label>الاسم<input id="label"></label><label>نوع الغرفة<select id="type"></select></label><label class="check"><input id="boss" type="checkbox"> غرفة الزعيم</label>
+<div class="pair"><label>حد الأعداء<input id="active_cap" type="number" min="0" max="40"></label><label>إطلاق الدفعة عند<input id="release_threshold" type="number" min="0" max="39"></label></div>
+<div class="pair"><label>مكافأة الذهب<input id="reward_gold" type="number" min="0"></label><label>مكافأة XP<input id="reward_xp" type="number" min="0"></label></div>
+<h3>العنصر المحدد</h3><div id="selection">اختر عنصراً من المشهد</div>
+<h3>ظهور الأعداء <span id="waveCount"></span></h3><div class="waveEditor"><label>الوقت بالثواني<input id="waveTime" type="number" min="0" max="600" step="0.1" value="0.2"></label><label>الباب<select id="waveDoor"><option>north</option><option>east</option><option>south</option><option>west</option></select></label><label>العدو<select id="waveEnemy"></select></label><button id="addWave">+ إضافة ظهور</button></div>
+<div class="waves"><table><thead><tr><th>ث</th><th>باب</th><th>عدو</th><th></th></tr></thead><tbody id="waves"></tbody></table></div><p class="hint">اضغط صفاً لتحريره، ثم «تحديث الظهور». الأبواب تستخدم أيضاً للانتقال بين الغرف. الغرف المتجاورة في شبكة المسار تتصل تلقائياً.</p></aside></main>
+<dialog id="objectDialog"><div class="objectHeader"><div><h2>مكتبة العناصر</h2><p>الرسم والقيم الأساسية · تُطبّق عند بدء جولة جديدة</p></div><button id="closeObjects">إغلاق ×</button></div><div class="objectLayout"><nav id="objectList"></nav><section><canvas id="objectPreview" width="600" height="320"></canvas><div id="objectFields"></div><p id="objectStatus" role="status"></p><div class="row"><button id="revertObjects">إلغاء التعديلات غير المحفوظة</button><button id="saveObjects" class="primary">حفظ خصائص العناصر</button></div><p class="hint">المسدس هو السلاح الأساسي. السيف خاص بضربة داش النينجا، ولا يفتح تبديل الأسلحة. تغييرات المكتبة عامة لكل الغرف؛ مواضع العناصر محفوظة مع المرحلة.</p></section></div></dialog>
+<script src="/editor.js"></script><script src="/objects.js"></script><script src="/visual_inspector.js"></script></html>

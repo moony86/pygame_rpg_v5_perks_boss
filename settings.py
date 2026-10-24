@@ -1,10 +1,24 @@
+import os
+import sys
+
+
+def _env_flag(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in ("0", "false", "off", "no")
+
+
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
 MAP_SIZE = 5400
 FPS = 60
+# Temporary demo loadout. Re-enable class weapons here once they are ready.
+ENABLED_WEAPON_IDS = ("pistol",)
 DEBUG_ROOM_FLOW = False
 DEBUG_CAPTURE_SCREENS = False
-DEV_TOOLS_ENABLED = True
+_PACKAGED_BUILD = bool(getattr(sys, "frozen", False) or getattr(sys, "_MEIPASS", None))
+DEV_TOOLS_ENABLED = _env_flag("BLUECUBE_DEV_TOOLS", not _PACKAGED_BUILD)
 
 PLAYER_SPEED = 375
 PLAYER_MAX_HEALTH = 125

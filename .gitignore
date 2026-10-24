@@ -15,3 +15,35 @@ env/
 # Editor settings
 .vscode/
 .idea/
+
+# Private browser QA: never part of the desktop demo distribution.
+.internal-web/
+.internal-web-venv/
+
+# Recoverable Level Studio saves (the active JSON remains tracked).
+assets/levels/*.json.bak
+assets/levels/*.json.tmp
+assets/data/*.json.bak
+assets/data/*.json.tmp
+
+# Local/generated files, never source distributions.
+.venv/
+.agents/
+.codex/
+debug_screenshots/
+dev_snapshots/
+dist_nuitka_demo/
+installer_output/
+build/
+dist/
+*.build/
+*.dist/
+*.onefile-build/
+nuitka-crash-report.xml
+asset_report.json
+room_layout.json
+*.log
+*.zip
+*.rar
+.env.*
+!.env.example

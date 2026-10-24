@@ -45,6 +45,8 @@ class EnemyPool:
         return Enemy(x, y, enemy_type=enemy_type, difficulty=difficulty)
 
     def release(self, enemy):
+        if getattr(enemy,'is_boss_eye',False):
+            return
         enemy_type = getattr(enemy, "type", None)
         if enemy_type in (None, EnemyType.BOSS, EnemyType.LOOT):
             return

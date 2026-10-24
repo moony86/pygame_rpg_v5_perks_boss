@@ -24,6 +24,7 @@ from settings import (
     YELLOW,
 )
 from systems.asset_loader import load_image, load_sheet_frames
+from systems.object_catalog import sprite as visual_sprite, definition as visual_definition
 from systems.room_bounds import current_room_bounds, current_room_rect
 
 CHASER_BURST_MIN_DISTANCE = 150
@@ -62,6 +63,10 @@ class Enemy:
     _phase_font = None
 
     def __init__(self, x, y, enemy_type=EnemyType.CHASER, difficulty=1.0):
+        self.is_boss_eye = False
+        self.is_boss_guard = False
+        self.guardian_owner_id = None
+        self.encounter = None
         self.type = enemy_type
         self.difficulty = max(1.0, difficulty)
         self.health_scale = self.difficulty ** 1.45
@@ -73,7 +78,7 @@ class Enemy:
         jumper_types = (EnemyType.JUMPER, EnemyType.JUMPER_FAST, EnemyType.JUMPER_HEAVY)
 
         if self.type == EnemyType.LOOT:
-            self.rect       = pygame.Rect(x, y, 36, 36)
+            self.rect       = pygame.Rect(x, y, 48, 54)
             self.speed      = ENEMY_SPEED * 2.15
             self.max_health = int(ENEMY_HEALTH * 4.1)
             self.damage_multiplier = 0.0
@@ -83,28 +88,28 @@ class Enemy:
             self.max_shield  = int(650 + BOSS_HEALTH * (0.25 + self.difficulty * 0.32))
             self.shield      = self.max_shield
             self.rage        = False
-            self.rect        = pygame.Rect(x, y, 92, 92)
+            self.rect        = pygame.Rect(x, y, 104, 112)
             self.speed       = BOSS_SPEED * min(2.35, 1.0 + self.difficulty * 0.13)
             self.max_health  = int(BOSS_HEALTH * (2.35 + self.difficulty * 1.85))
 
         elif self.type == EnemyType.ELITE:
-            self.rect       = pygame.Rect(x, y, 58, 58)
+            self.rect       = pygame.Rect(x, y, 70, 80)
             self.speed      = ENEMY_SPEED * 0.82 * self.speed_scale
             self.max_health = int(ENEMY_HEALTH * self.health_scale * 4.9)
 
         elif self.type == EnemyType.HUNTER:
-            self.rect       = pygame.Rect(x, y, 38, 38)
+            self.rect       = pygame.Rect(x, y, 50, 60)
             self.speed      = ENEMY_SPEED * 1.18 * self.speed_scale
             self.max_health = int(ENEMY_HEALTH * self.health_scale * 1.15)
 
         elif self.type == EnemyType.BRUTE:
-            self.rect       = pygame.Rect(x, y, 52, 52)
+            self.rect       = pygame.Rect(x, y, 66, 76)
             self.speed      = ENEMY_SPEED * 0.95 * self.speed_scale
             self.max_health = int(ENEMY_HEALTH * self.health_scale * 2.4)
             self.damage_multiplier *= 1.25
 
         else:
-            self.rect      = pygame.Rect(x, y, 34, 34)
+            self.rect      = pygame.Rect(x, y, 46, 56)
             base_speed     = ENEMY_SPEED
 
             if self.type in ranged_types:
@@ -149,9 +154,22 @@ class Enemy:
         self.windup_timer     = 0.0
         self.windup_direction = pygame.Vector2(0, 0)
         self.windup_action    = None
+        self.ranged_windup_total = 0.0
+        self.ranged_release_timer = 0.0
 
         self.leap_timer    = 0.0
         self.leap_velocity = pygame.Vector2(0, 0)
+        self.jumper_windup_total = 0.
+        self.jumper_flight_total = 0.
+        self.jumper_landing_timer = 0.
+        self.brute_windup_total = 0.
+        self.brute_stop_timer = 0.
+        self.brute_stride = 0.
+        self.brute_moving = False
+        self.visual_stride = 0.
+        self.visual_moving = False
+        self.visual_windup_total = 0.
+        self.visual_release_timer = 0.
 
         self.boss_attack_index = 0
         self.elite_attack_index = 0
@@ -166,16 +184,19 @@ class Enemy:
 
         # animation tick (used for oscillating effects)
         self._anim = 0.0
+        if self.type == EnemyType.BOSS:
+            from systems.boss_encounter import BossEncounter
+            self.encounter = BossEncounter(self)
 
         if Enemy._chaser_idle_image is None:
             Enemy._chaser_idle_image = load_image("enamyIdle.png", size=(36, 36))
         if Enemy._chaser_walk_frames is None:
             Enemy._chaser_walk_frames = load_sheet_frames("enamy1.png", (32, 32), scale=(36, 36))
             
-        if Enemy._ranged_idle_image is None:
-            Enemy._ranged_idle_image = load_image("enemyRangedIdle.png", size=(36, 36))
         if Enemy._ranged_body_frames is None:
             Enemy._ranged_body_frames = load_sheet_frames("enamyRange.png", (64, 64), scale=(42, 42))
+        if Enemy._ranged_idle_image is None and Enemy._ranged_body_frames:
+            Enemy._ranged_idle_image = Enemy._ranged_body_frames[0]
         if Enemy._ranged_weapon_frames is None:
             Enemy._ranged_weapon_frames = load_sheet_frames("enamyRangeWepaon.png", (64, 64), scale=(32, 32))
 
@@ -190,6 +211,12 @@ class Enemy:
             return None
 
         self._anim += dt
+        self.ranged_release_timer = max(0., self.ranged_release_timer-dt)
+        self.jumper_landing_timer = max(0., self.jumper_landing_timer-dt)
+        self.brute_stop_timer = max(0., self.brute_stop_timer-dt)
+        self.brute_moving = False
+        self.visual_release_timer=max(0.,self.visual_release_timer-dt)
+        self.visual_moving=False
 
         if self.hit_flash > 0:
             self.hit_flash = max(0, self.hit_flash - dt)
@@ -206,6 +233,11 @@ class Enemy:
         if self.path_commit_timer > 0:
             self.path_commit_timer = max(0, self.path_commit_timer - dt)
 
+        if self.is_boss_eye:
+            return None
+        if self.encounter is not None:
+            return self.encounter.update(dt, player_rect)
+
         if self.windup_timer > 0:
             self.windup_timer = max(0, self.windup_timer - dt)
             if self.windup_timer <= 0:
@@ -219,6 +251,11 @@ class Enemy:
             self.rect.clamp_ip(current_room_rect())
             if self.leap_timer <= 0:
                 self._resolve_leap_landing(old_rect)
+                from systems.jumper_presentation import is_jumper
+                if is_jumper(self):
+                    self.jumper_landing_timer = .22
+                elif self.type == EnemyType.BRUTE:
+                    self.brute_stop_timer = .26
             return None
 
         player_center = pygame.Vector2(player_rect.center)
@@ -259,9 +296,19 @@ class Enemy:
         return None
 
     def _start_windup(self, seconds, direction, action):
+        self.visual_windup_total = seconds
+        self.visual_release_timer = 0.
         self.windup_timer     = seconds
         self.windup_direction = direction.copy()
         self.windup_action    = action
+        if action == 'enemy_jump':
+            self.jumper_windup_total = seconds
+        if action == 'brute_charge':
+            self.brute_windup_total = seconds
+            self.brute_stop_timer = 0.
+        if action in ('enemy_shoot', 'enemy_rain'):
+            self.ranged_windup_total = seconds
+            self.ranged_release_timer = 0.
 
     def _predictive_direction(self, lead_time, offset_strength=0.0):
         target = (self.last_player_center or pygame.Vector2(self.rect.center)) + self.estimated_player_velocity * lead_time
@@ -468,6 +515,11 @@ class Enemy:
     def _finish_windup(self):
         action            = self.windup_action
         self.windup_action = None
+        if action and self.type.name in ('HUNTER','ELITE','BOSS'):
+            self.visual_release_timer=.24
+        if action in ('enemy_shoot', 'enemy_rain'):
+            from systems.ranged_presentation import RELEASE_SECONDS, RECOVERY_SECONDS
+            self.ranged_release_timer = RELEASE_SECONDS + RECOVERY_SECONDS
 
         if action == "enemy_jump":
             jump_speed = 820 * min(1.9, self.speed_scale / 1.32)
@@ -477,6 +529,7 @@ class Enemy:
                 jump_speed *= 0.92
             self.leap_timer = JUMPER_LEAP_TIME * (0.88 if self.type == EnemyType.JUMPER_FAST else 1.15 if self.type == EnemyType.JUMPER_HEAVY else 1.0)
             self.leap_velocity = self.windup_direction * jump_speed
+            self.jumper_flight_total = self.leap_timer
             return {"type": "enemy_jump"}
 
         if action == "brute_charge":
@@ -531,6 +584,7 @@ class Enemy:
             self._move_vector(side * self.speed * dt * 0.85)
 
     def _move_vector(self, movement, ignore_solids=False):
+        previous_center=self.rect.center
         dx = round(movement.x)
         dy = round(movement.y)
         solid_rects = () if ignore_solids else getattr(self, "solid_rects", ())
@@ -551,6 +605,12 @@ class Enemy:
                     self.rect.bottom = solid.top
                 elif dy < 0:
                     self.rect.top = solid.bottom
+        distance=pygame.Vector2(self.rect.center).distance_to(previous_center)
+        self.visual_stride+=distance*.12
+        self.visual_moving=self.visual_moving or distance>0
+        if self.type == EnemyType.BRUTE:
+            self.brute_stride+=distance*.12
+            self.brute_moving=self.brute_moving or distance>0
         return blocked
 
     def _collides_solid(self, rect):
@@ -608,7 +668,9 @@ class Enemy:
         self.path_commit_timer = 0.55
         return committed
 
-    def take_damage(self, amount):
+    def take_damage(self, amount, reflected=False):
+        if self.encounter is not None:
+            return self.encounter.damage(amount, reflected=reflected)
         self.health -= amount
         self.hit_flash = 0.08
         if self.health <= 0:
@@ -622,6 +684,79 @@ class Enemy:
     # ------------------------------------------------------------------ #
 
     def draw(self, surface, camera):
+        if self.encounter is not None:
+            self.encounter.draw(surface,camera)
+        key = 'boss_healing_eye' if self.is_boss_eye else 'enemy_' + self.type.name.lower()
+        if self.type == EnemyType.BOSS and self.phase > 1:
+            key = 'enemy_boss_phase_' + str(self.phase)
+        art = visual_sprite(key, frame=int(self._anim*visual_definition(key)['fps']))
+        if art is not None:
+            sr = camera.apply_rect(self.rect)
+            shadow = pygame.Rect(0,0,max(16,sr.width),max(5,sr.height//5))
+            shadow.center = (sr.centerx,sr.bottom)
+            pygame.draw.ellipse(surface,(4,7,12),shadow)
+            if self.encounter is not None:
+                sr.y-=round(self.encounter.lift)
+            # The new authored enemy sprites face left, like the legacy set.
+            from systems.ranged_presentation import is_ranged, pose as ranged_pose, draw_cast
+            ranged = is_ranged(self)
+            from systems.jumper_presentation import is_jumper, pose as jumper_pose, draw_ground
+            jumper = is_jumper(self)
+            if jumper:
+                draw_ground(surface,sr.center,self)
+            brute = self.type == EnemyType.BRUTE
+            if brute:
+                from systems.brute_presentation import pose as brute_pose, draw_ground as brute_ground
+                brute_ground(surface,sr.center,self)
+            facing_left = getattr(self,'facing_left',False)
+            if ranged and (self.windup_timer > 0 or self.ranged_release_timer > 0) and abs(self.windup_direction.x)>.1:
+                facing_left=self.windup_direction.x<0
+            if jumper and abs(self.windup_direction.x)>.1 and (self.windup_timer>0 or self.leap_timer>0):
+                facing_left=self.windup_direction.x<0
+            if brute and abs(self.windup_direction.x)>.1 and (self.windup_timer>0 or self.leap_timer>0):
+                facing_left=self.windup_direction.x<0
+            if self.type.name in ('HUNTER','ELITE','BOSS') and abs(self.windup_direction.x)>.1 and (self.windup_timer>0 or self.visual_release_timer>0):
+                facing_left=self.windup_direction.x<0
+            if not facing_left:
+                art = pygame.transform.flip(art,True,False)
+            if self.hit_flash > 0:
+                art = art.copy()
+                art.fill((145,145,145,0),special_flags=pygame.BLEND_RGB_ADD)
+            offset = (0, 0)
+            if self.type == EnemyType.CHASER:
+                from systems.chaser_presentation import pose
+                art, offset, _ = pose(self, art)
+            if ranged:
+                art, offset, cast_state, progress, aim = ranged_pose(self, art)
+            if jumper:
+                art, offset, _ = jumper_pose(self,art)
+            if brute:
+                art, offset, _ = brute_pose(self,art)
+            from systems.actor_presentation import REMAINING, enemy_pose
+            if self.type.name in REMAINING:
+                art, offset, _ = enemy_pose(self,art)
+            surface.blit(art,art.get_rect(center=(sr.centerx+offset[0],sr.centery+offset[1])))
+            if ranged:
+                draw_cast(surface,sr.center,aim,cast_state,progress)
+            if self.type.name in ('HUNTER','ELITE','BOSS') and self.windup_direction.length_squared()>0:
+                from systems.shot_presentation import draw_charge
+                charging=self.windup_timer>0
+                release=self.visual_release_timer>0 and self.leap_timer<=0
+                if charging or release:
+                    amount=max(.1,1-self.windup_timer/max(.001,self.visual_windup_total)) if charging else self.visual_release_timer/.24
+                    direction=self.windup_direction.normalize()
+                    draw_charge(surface,pygame.Vector2(sr.center)+direction*(sr.width*.4),direction,amount,
+                                'fire' if self.type==EnemyType.BOSS else 'magic',release=release)
+            self._draw_health_bar(surface,camera)
+            if self.type == EnemyType.BOSS:
+                if Enemy._phase_font is None:
+                    Enemy._phase_font = pygame.font.Font(None,22)
+                label = Enemy._phase_font.render('PHASE '+str(self.phase),True,(255,185,110))
+                surface.blit(label,label.get_rect(center=(sr.centerx,sr.top-40)))
+            self._draw_vampire_wounds(surface,camera)
+            self._draw_windup_indicator(surface,camera)
+            return
+        self._draw_shadow_glow(surface, camera)
         if self.type in (EnemyType.CHASER, EnemyType.CHASER_FAST, EnemyType.CHASER_TANK):
             
             self._draw_chaser(surface, camera)
@@ -647,6 +782,71 @@ class Enemy:
         self._draw_vampire_wounds(surface, camera)
         self._draw_windup_indicator(surface, camera)
 
+    def _draw_shadow_glow(self, surface, camera):
+        sr = camera.apply_rect(self.rect)
+        shadow_extra = 10
+        shadow_h = max(5, sr.height // 5)
+        shadow_col = (0, 0, 0)
+        if self.type == EnemyType.BRUTE:
+            shadow_extra = 22
+            shadow_h = max(8, sr.height // 4)
+        elif self.type == EnemyType.BOSS:
+            shadow_extra = 34
+            shadow_h = max(12, sr.height // 4)
+        elif self.type == EnemyType.ELITE:
+            shadow_extra = 18
+        elif self.type == EnemyType.LOOT:
+            shadow_col = (38, 28, 0)
+        shadow = pygame.Rect(0, 0, max(12, sr.width + shadow_extra), shadow_h)
+        shadow.center = (sr.centerx + 2, sr.bottom - 2)
+        pygame.draw.ellipse(surface, shadow_col, shadow)
+
+        ranged_types = (EnemyType.RANGED, EnemyType.RANGED_THREE, EnemyType.RANGED_FIVE, EnemyType.RANGED_RAIN)
+        if self.type in (EnemyType.CHASER, EnemyType.CHASER_FAST, EnemyType.CHASER_TANK):
+            rim_col = (255, 105, 105)
+            if self.type == EnemyType.CHASER_FAST:
+                rim_col = (255, 145, 80)
+            elif self.type == EnemyType.CHASER_TANK:
+                rim_col = (210, 95, 95)
+            pygame.draw.line(surface, rim_col, sr.topleft, (sr.right - 2, sr.top), 1)
+            pygame.draw.line(surface, (95, 8, 8), (sr.left, sr.bottom - 2), (sr.right - 2, sr.bottom - 2), 1)
+        elif self.type in ranged_types:
+            windup_ratio = min(1.0, max(0.0, self.windup_timer / max(0.01, RANGED_WINDUP_TIME)))
+            pulse = 2 + int(3 * math.sin(self._anim * 12))
+            glow_radius = max(sr.width, sr.height) // 2 + pulse + int(8 * windup_ratio)
+            glow_col = (115, 175, 255) if self.type == EnemyType.RANGED_RAIN else (185, 125, 255)
+            pygame.draw.circle(surface, glow_col, sr.center, glow_radius, 1 + int(2 * windup_ratio))
+            if self.windup_timer > 0:
+                pygame.draw.line(surface, (220, 245, 255), (sr.left + 5, sr.top - 3), (sr.right - 5, sr.top - 3), 2)
+        elif self.type == EnemyType.HUNTER:
+            side_x = sr.left + 5 if getattr(self, "facing_left", False) else sr.right - 5
+            pygame.draw.line(surface, (255, 130, 235), (side_x, sr.top + 5), (side_x, sr.bottom - 7), 2)
+            pygame.draw.rect(surface, (170, 55, 210), sr.inflate(5, 5), 1, border_radius=8)
+        elif self.type == EnemyType.BRUTE:
+            pygame.draw.rect(surface, (55, 34, 18), sr.inflate(10, 8), 3, border_radius=8)
+            pygame.draw.line(surface, (235, 185, 95), (sr.left + 7, sr.top + 3), (sr.right - 8, sr.top + 3), 2)
+
+        if self.hit_flash > 0 or self.type in (EnemyType.ELITE, EnemyType.BOSS, EnemyType.LOOT):
+            glow_col = (255, 90, 90)
+            if self.type == EnemyType.ELITE:
+                glow_col = GOLD
+            elif self.type == EnemyType.BOSS:
+                glow_col = (255, 85, 45)
+            elif self.type == EnemyType.LOOT:
+                glow_col = (255, 220, 80)
+            inflate = 8
+            width = 2
+            if self.type == EnemyType.ELITE:
+                inflate = 12 + int(2 * abs(math.sin(self._anim * 4)))
+                width = 3
+            elif self.type == EnemyType.BOSS:
+                inflate = 18 + int(4 * abs(math.sin(self._anim * 3)))
+                width = 4
+            glow_rect = sr.inflate(inflate, inflate)
+            pygame.draw.rect(surface, glow_col, glow_rect, width, border_radius=8)
+            if self.type == EnemyType.BOSS:
+                pygame.draw.line(surface, (255, 170, 70), (sr.left - 8, sr.top - 8), (sr.right + 8, sr.top - 8), 2)
+
     # ---- hit flash (all types) ----------------------------------------
     def _draw_flash(self, surface, camera):
         sr = camera.apply_rect(self.rect)
@@ -670,6 +870,8 @@ class Enemy:
             body_col, spike_col = (125, 35, 35), (210, 80, 80)
     
         pygame.draw.rect(surface, body_col, sr, border_radius=4)
+        pygame.draw.line(surface, (255, 120, 120), (x + 4, y + 4), (x + w - 5, y + 4), 2)
+        pygame.draw.line(surface, (90, 8, 8), (x + 3, y + h - 4), (x + w - 4, y + h - 4), 2)
     
         spike_size = 7
         for sx, sy in [(x, y), (x + w - spike_size, y)]:
@@ -736,6 +938,7 @@ class Enemy:
         orb_col = (120, 190, 255) if self.type == EnemyType.RANGED_RAIN else (180, 120, 255)
 
         pygame.draw.rect(surface, robe_col, sr, border_radius=8)
+        pygame.draw.line(surface, (170, 110, 230), (x + 4, y + 5), (x + w - 5, y + 5), 2)
 
         hood_pts = [
             (x + 2, y + 6),
@@ -748,6 +951,8 @@ class Enemy:
         pygame.draw.line(surface, (55, 30, 100),
                          (staff_x, y - 2), (staff_x, y + h + 2), 3)
         orb_pulse = 5 + int(2 * math.sin(self._anim * 4))
+        if self.windup_timer > 0:
+            orb_pulse += 3
         pygame.draw.circle(surface, orb_col, (staff_x, y - 2), orb_pulse, 2)
         pygame.draw.circle(surface, (220, 190, 255), (staff_x, y - 2), orb_pulse // 2)
 
@@ -815,6 +1020,7 @@ class Enemy:
 
         # body – teal compact block
         pygame.draw.rect(surface, col_body, sr, border_radius=6)
+        pygame.draw.line(surface, (120, 255, 230), (x + 5, y + 4), (x + w - 6, y + 4), 2)
 
         # coiled spring legs (when idle) or extended (when leaping)
         spring_col = (0, 130, 130)
@@ -850,6 +1056,7 @@ class Enemy:
         x, y, w, h = sr.x, sr.y, sr.width, sr.height
 
         pygame.draw.rect(surface, (130, 30, 120), sr, border_radius=7)
+        pygame.draw.line(surface, (255, 150, 235), (x + 5, y + 4), (x + w - 6, y + 4), 2)
         pygame.draw.rect(surface, (255, 70, 210), pygame.Rect(x + 5, y + 7, w - 10, 7), border_radius=2)
         pygame.draw.circle(surface, (255, 120, 230), (cx, cy), 8, 2)
         pygame.draw.line(surface, (255, 70, 210), (cx - 14, cy + 11), (cx + 14, cy + 11), 3)
@@ -867,6 +1074,7 @@ class Enemy:
         body_col = (120, 95, 55) if not charging else (210, 145, 55)
         plate_col = (210, 175, 90)
         pygame.draw.rect(surface, body_col, sr, border_radius=5)
+        pygame.draw.line(surface, (230, 190, 105), (x + 6, y + 4), (x + w - 7, y + 4), 2)
         pygame.draw.rect(surface, plate_col, pygame.Rect(x + 5, y + 5, w - 10, 10), border_radius=2)
         pygame.draw.rect(surface, (75, 50, 30), pygame.Rect(x + 8, y + h - 13, w - 16, 8), border_radius=2)
         pygame.draw.circle(surface, (255, 230, 120), (cx - 9, y + 23), 4)
@@ -882,6 +1090,8 @@ class Enemy:
 
         # armoured body – pink/magenta with plates
         pygame.draw.rect(surface, (180, 50, 120), sr, border_radius=6)
+        pulse = int(2 + 2 * math.sin(self._anim * 5))
+        pygame.draw.rect(surface, (255, 120, 195), sr.inflate(6 + pulse, 6 + pulse), 2, border_radius=8)
 
         # shoulder armour plates
         plate_h = h // 3
@@ -913,10 +1123,16 @@ class Enemy:
         pulse = int(3 + 2 * math.sin(self._anim * 9))
         pygame.draw.circle(surface, (100, 70, 10), (cx, cy), w // 2 + 8 + pulse, 2)
         pygame.draw.rect(surface, GOLD, sr, border_radius=8)
+        pygame.draw.line(surface, (255, 250, 170), (x + 6, y + 5), (x + w - 7, y + 5), 2)
         pygame.draw.rect(surface, (110, 70, 10), pygame.Rect(x + 5, y + 7, w - 10, h - 12), border_radius=5)
         pygame.draw.circle(surface, YELLOW, (cx - 7, cy - 2), 4)
         pygame.draw.circle(surface, YELLOW, (cx + 7, cy - 2), 4)
         pygame.draw.rect(surface, (255, 235, 120), pygame.Rect(x + 7, y + h - 10, w - 14, 4), border_radius=2)
+        glimmer = int(self._anim * 6) % 4
+        sparkle_points = ((x + 8, y + 9), (x + w - 10, y + 15), (cx, y + h - 14), (x + w - 15, y + h - 8))
+        sx, sy = sparkle_points[glimmer]
+        pygame.draw.line(surface, (255, 255, 210), (sx - 4, sy), (sx + 4, sy), 1)
+        pygame.draw.line(surface, (255, 255, 210), (sx, sy - 4), (sx, sy + 4), 1)
 
     # ---- BOSS ----------------------------------------------------------
     def _draw_boss(self, surface, camera):
@@ -954,6 +1170,8 @@ class Enemy:
 
         # massive body
         pygame.draw.rect(surface, body_col, sr, border_radius=8)
+        pygame.draw.rect(surface, (255, 150, 80), sr.inflate(8, 8), 2, border_radius=10)
+        pygame.draw.line(surface, (255, 230, 150), (x + 10, y + 5), (x + w - 11, y + 5), 3)
 
         # shoulder pauldrons
         p_w, p_h = w // 4, h // 5
@@ -1019,6 +1237,8 @@ class Enemy:
 
     # ---- health bar ---------------------------------------------------
     def _draw_health_bar(self, surface, camera):
+        if self.encounter is not None:
+            return  # One readable encounter health bar, not two competing boss bars.
         bar_w = self.rect.width
         ratio = max(0, self.health / self.max_health)
 
@@ -1029,7 +1249,7 @@ class Enemy:
         pygame.draw.rect(surface, (220, 60, 60), camera.apply_rect(fg))
 
         # boss shield bar
-        if self.type == EnemyType.BOSS and self.phase == 1:
+        if self.type == EnemyType.BOSS and self.phase == 1 and self.encounter is None:
             sh_ratio = max(0, self.shield / self.max_shield)
             sh_bg = pygame.Rect(self.rect.x, self.rect.y - 17, bar_w, 5)
             sh_fg = pygame.Rect(self.rect.x, self.rect.y - 17, int(bar_w * sh_ratio), 5)
@@ -1050,29 +1270,47 @@ class Enemy:
 
     # ---- windup indicator ---------------------------------------------
     def _draw_windup_indicator(self, surface, camera):
+        if self.encounter is not None:
+            return  # Encounter draws pattern-matched tells, including cyan parry cues.
         if self.windup_timer <= 0 or self.windup_direction.length_squared() == 0:
             return
 
         start  = camera.apply_pos(pygame.Vector2(self.rect.center))
         action = self.windup_action or ""
+        if self.type == EnemyType.HUNTER:
+            from systems.ranged_presentation import draw_telegraph
+            draw_telegraph(surface,start,self.windup_direction,self.windup_telegraph_length(),
+                           self.windup_timer,self.visual_windup_total,self._anim,
+                           palette=((220,70,150),(255,165,210)))
+            return
+        if action == 'brute_charge' and self.type == EnemyType.BRUTE:
+            from systems.ranged_presentation import draw_telegraph
+            draw_telegraph(surface,start,self.windup_direction,self.windup_telegraph_length(),
+                           self.windup_timer,self.brute_windup_total,self._anim,
+                           palette=((210,130,50),(255,220,140)))
+            return
+        if action in ('enemy_shoot', 'enemy_rain') or (action=='enemy_jump' and self.type in (EnemyType.JUMPER,EnemyType.JUMPER_FAST,EnemyType.JUMPER_HEAVY)):
+            from systems.ranged_presentation import draw_telegraph
+            draw_telegraph(surface, start, self.windup_direction,
+                           self.windup_telegraph_length(), self.windup_timer,
+                           self.jumper_windup_total if action=='enemy_jump' else self.ranged_windup_total, self._anim)
+            return
 
         if "ring" in action:
             pygame.draw.circle(surface, (255, 120, 40),
                                (round(start.x), round(start.y)), 120, 3)
 
         elif "summon" in action:
-            end = start + self.windup_direction * 290
-            pygame.draw.line(surface, (255, 120, 40), start, end, 8)
-            pygame.draw.circle(surface, (255, 120, 40),
-                               (round(start.x), round(start.y)), 30, 2)
+            from systems.ranged_presentation import draw_telegraph
+            draw_telegraph(surface,start,self.windup_direction,290,self.windup_timer,
+                           self.visual_windup_total,self._anim,palette=((230,80,65),(255,190,140)))
 
         else:
             length = self.windup_telegraph_length()
-            width  = 7 if self.type in (EnemyType.BOSS, EnemyType.ELITE) else 3
-            end    = start + self.windup_direction * length
-            pygame.draw.line(surface, (255, 120, 40), start, end, width)
-            pygame.draw.circle(surface, (255, 120, 40),
-                               (round(start.x), round(start.y)), 20, 2)
+            from systems.ranged_presentation import draw_telegraph
+            colors=((230,80,65),(255,190,140)) if self.type==EnemyType.BOSS else ((205,150,60),(255,230,170))
+            draw_telegraph(surface,start,self.windup_direction,length,self.windup_timer,
+                           self.visual_windup_total,self._anim,palette=colors)
 
     def windup_telegraph_length(self):
         action = self.windup_action or ""

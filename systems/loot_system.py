@@ -1,9 +1,19 @@
+import random
+
 from entities.pickup import Pickup
+from systems.object_catalog import definition
 
 
 COIN_UNIT_VALUE = 10
 MAX_XP_DROPS_PER_ENEMY = 4
 DEFAULT_MAGNET_RADIUS = 100
+HEAL_POTION_DROP_CHANCE = 0.035
+TIME_STOP_DROP_CHANCE = 0.025
+ELITE_SPECIAL_DROP_MULTIPLIER = 2.0
+HEAL_POTION_AMOUNTS = (15, 25, 35)
+HEAL_POTION_WEIGHTS = (0.46, 0.34, 0.20)
+HEAL_POTION_AMOUNT = 35
+TIME_STOP_DURATION = 2.0
 XP_TIER_DEFINITIONS = {
     "xp_tier_1": {"anchor": 5, "name": "Tiny XP Shard", "color": "pale_cyan"},
     "xp_tier_2": {"anchor": 25, "name": "Small XP Crystal", "color": "cyan"},
@@ -31,18 +41,19 @@ class LootSystem:
     def collect_remaining(self, player, effects=None, audio=None):
         collected = {"gold": 0, "xp": 0}
         for pickup in self.pickups:
-            if not pickup.alive or pickup.pickup_type not in ("gold", "xp"):
+            if not pickup.alive or pickup.pickup_type not in ("gold", "xp", "heal_potion", "time_stop"):
                 continue
             value = pickup.value
             self._collect(pickup, player, effects, audio)
-            collected[pickup.pickup_type] += value
+            collected[pickup.pickup_type] = collected.get(pickup.pickup_type, 0) + value
             pickup.alive = False
         self.pickups = [pickup for pickup in self.pickups if pickup.alive]
         return collected
 
-    def spawn_enemy_rewards(self, position, gold, xp):
+    def spawn_enemy_rewards(self, position, gold, xp, enemy_type=None):
         self.spawn_gold(position, gold)
         self.spawn_xp(position, xp)
+        self.spawn_special_enemy_drop(position, enemy_type)
 
     def spawn_gold(self, position, amount):
         for value in self._split_amount(amount, COIN_UNIT_VALUE):
@@ -51,6 +62,18 @@ class LootSystem:
     def spawn_xp(self, position, amount, tier_hint=None):
         for value, tier_id in self._split_xp_pickups(amount, tier_hint=tier_hint):
             self.pickups.append(Pickup(position[0], position[1], "xp", value, tier_id=tier_id))
+
+    def spawn_special_enemy_drop(self, position, enemy_type=None):
+        type_name = getattr(enemy_type, "name", str(enemy_type or ""))
+        multiplier = ELITE_SPECIAL_DROP_MULTIPLIER if type_name == "ELITE" else 1.0
+        potion = definition('heal_potion')
+        time_stop = definition('time_stop')
+        if random.random() < potion['drop_chance'] * multiplier:
+            heal_amount = random.choices((potion['small'], potion['medium'], potion['large']), weights=HEAL_POTION_WEIGHTS, k=1)[0]
+            self.pickups.append(Pickup(position[0], position[1], "heal_potion", heal_amount))
+            return
+        if random.random() < time_stop['drop_chance'] * multiplier:
+            self.pickups.append(Pickup(position[0], position[1], "time_stop", time_stop['duration']))
 
     def update(self, dt, player, effects=None, audio=None):
         for pickup in self.pickups:
@@ -65,18 +88,42 @@ class LootSystem:
             pickup.draw(surface, camera)
 
     def _collect(self, pickup, player, effects, audio):
+        feedback_value=pickup.value
         if pickup.pickup_type == "gold":
             player.add_gold(pickup.value)
             label = f"+{pickup.value}g"
             sound_key = "coin_pickup"
-        else:
+        elif pickup.pickup_type == "xp":
             player.add_xp(pickup.value)
             label = f"+{pickup.value}xp"
             sound_key = "xp_pickup"
+        elif pickup.pickup_type == "heal_potion":
+            previous_health=player.health
+            player.heal(pickup.value)
+            feedback_value=player.health-previous_health
+            label = f"+{feedback_value} HP" if feedback_value>0 else 'HP FULL'
+            sound_key = "heal_pickup"
+        elif pickup.pickup_type == "time_stop":
+            player.enemy_time_stop_timer = max(getattr(player, "enemy_time_stop_timer", 0.0), float(pickup.value))
+            label = "TIME STOP"
+            sound_key = "time_stop_pickup"
+        else:
+            return
 
         if effects:
-            effects.ring(pickup.rect.center, radius=24, life=0.16, width=2)
-            effects.message(label, pickup.rect.midtop)
+            modern=hasattr(effects,'collect_pickup')
+            if modern:
+                effects.collect_pickup(pickup.pickup_type,feedback_value,player.rect.center)
+            if pickup.pickup_type == "heal_potion" and not modern:
+                effects.heal_burst(player.rect.center)
+                effects.message(label, player.rect.midtop, color=(95, 255, 145))
+            elif pickup.pickup_type == "time_stop":
+                effects.time_stop_trigger(player.rect.center, pickup.value)
+                if not modern:
+                    effects.message(label, player.rect.midtop, color=(120, 225, 255))
+            elif not modern:
+                effects.ring(pickup.rect.center, radius=24, life=0.16, width=2)
+                effects.message(label, pickup.rect.midtop)
         if audio:
             audio.play(sound_key)
 

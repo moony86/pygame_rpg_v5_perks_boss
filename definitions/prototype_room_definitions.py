@@ -32,6 +32,22 @@ class PrototypeObstacle:
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
 
+@dataclass(frozen=True)
+class PrototypePickupPoint:
+    id: str
+    x: int
+    y: int
+    kind: str = 'dash_refresh'
+
+
+@dataclass(frozen=True)
+class PrototypeRoomLayout:
+    id: str
+    doors: tuple
+    obstacles: tuple
+    movement_pickups: tuple = ()
+
+
 PROTOTYPE_ROOM_WIDTH = 1920
 PROTOTYPE_ROOM_HEIGHT = 1080
 PROTOTYPE_ACTIVE_ENEMY_CAP = 10
@@ -52,6 +68,61 @@ PROTOTYPE_OBSTACLES = (
     PrototypeObstacle("west_cover", 470, 330, 140, 300),
     PrototypeObstacle("center_cover", 820, 585, 280, 110),
     PrototypeObstacle("east_cover", 1310, 450, 140, 300),
+)
+
+
+DEFAULT_MOVEMENT_PICKUPS = (
+    PrototypePickupPoint("west_pickup", 650, 540),
+    PrototypePickupPoint("east_pickup", 1270, 540),
+)
+
+
+DEFAULT_PROTOTYPE_LAYOUT = PrototypeRoomLayout(
+    "default_cross_cover",
+    PROTOTYPE_DOORS,
+    PROTOTYPE_OBSTACLES,
+    DEFAULT_MOVEMENT_PICKUPS,
+)
+
+
+COMBAT_LAYOUT_VARIANTS = (
+    DEFAULT_PROTOTYPE_LAYOUT,
+    PrototypeRoomLayout(
+        "split_lanes",
+        (
+            PrototypeDoor("north", 820, 78, "south"),
+            PrototypeDoor("east", 1842, 430, "west"),
+            PrototypeDoor("south", 1100, 1002, "north"),
+            PrototypeDoor("west", 78, 650, "east"),
+        ),
+        (
+            PrototypeObstacle("north_left_cover", 540, 250, 240, 110),
+            PrototypeObstacle("south_right_cover", 1140, 720, 240, 110),
+            PrototypeObstacle("center_pillar", 895, 450, 130, 190),
+        ),
+        (
+            PrototypePickupPoint("north_lane_pickup", 910, 300),
+            PrototypePickupPoint("south_lane_pickup", 1010, 780),
+        ),
+    ),
+    PrototypeRoomLayout(
+        "offset_columns",
+        (
+            PrototypeDoor("north", 1060, 78, "south"),
+            PrototypeDoor("east", 1842, 620, "west"),
+            PrototypeDoor("south", 860, 1002, "north"),
+            PrototypeDoor("west", 78, 460, "east"),
+        ),
+        (
+            PrototypeObstacle("west_column", 430, 435, 120, 260),
+            PrototypeObstacle("mid_column", 900, 255, 120, 260),
+            PrototypeObstacle("east_column", 1370, 565, 120, 260),
+        ),
+        (
+            PrototypePickupPoint("upper_mid_pickup", 1060, 430),
+            PrototypePickupPoint("lower_mid_pickup", 760, 660),
+        ),
+    ),
 )
 
 
@@ -99,5 +170,6 @@ PROTOTYPE_SPAWN_PLAN = (
 )
 
 
-def prototype_door_map():
-    return {door.id: door for door in PROTOTYPE_DOORS}
+def prototype_door_map(layout=None):
+    source = layout.doors if layout else PROTOTYPE_DOORS
+    return {door.id: door for door in source}

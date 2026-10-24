@@ -16,6 +16,7 @@ from systems.definition_registry import definition_registry
 from systems.scene_system import enter_boss, enter_hub, enter_room
 from systems.xp_budget import room_completion_xp
 from systems.room_bounds import current_room_bounds
+from systems.dev_workspace import DevWorkspace
 
 
 MAX_EVENT_LOG = 100
@@ -71,6 +72,7 @@ class DevTools:
         self.perk_search_query = ""
         self.perk_build_filter = "All"
         self.message = "Dev tools ready"
+        self.workspace = DevWorkspace(game, self)
         if DEV_TOOLS_ENABLED:
             self.game.events.subscribe("*", self.record_event)
 
@@ -751,7 +753,7 @@ class DevTools:
         if not DEV_TOOLS_ENABLED:
             self.message = "dev tools disabled"
             return False
-        horde = getattr(self.game, "horde", None)
+        horde = self.game.ensure_horde() if hasattr(self.game, "ensure_horde") else getattr(self.game, "horde", None)
         if horde is None:
             self.message = "horde system unavailable"
             return False
@@ -975,8 +977,8 @@ class DevTools:
             self.message = "dev tools disabled"
             return False
         enter_room(self.game)
-        self.message = "entered normal room"
-        self.add_event("Room Entered: Room")
+        self.message = "entered legacy 10-room route"
+        self.add_event("Legacy Route Entered: 10-room reference")
         return True
 
     def enter_prototype_room(self):

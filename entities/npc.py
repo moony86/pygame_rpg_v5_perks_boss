@@ -82,8 +82,6 @@ class NPC:
         self._anim += dt
 
     def draw(self, surface, camera):
-        self._anim += 0.016
-
         sr = camera.apply_rect(self.rect)
         cx, cy = sr.centerx, sr.centery
         x, y, w, h = sr.x, sr.y, sr.width, sr.height

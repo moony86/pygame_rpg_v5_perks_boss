@@ -1,0 +1,2755 @@
+{
+  "schema": "bluecube.stage.v1",
+  "name": "The Slate Trial",
+  "rooms": [
+    {
+      "id": "room_1",
+      "position": [
+        0,
+        0
+      ],
+      "type": "COMBAT",
+      "label": "Combat",
+      "boss": false,
+      "active_cap": 10,
+      "release_threshold": 5,
+      "reward_gold": 80,
+      "reward_xp": 0,
+      "obstacles": [
+        {
+          "id": "slate_cover_1",
+          "x": 430,
+          "y": 320,
+          "width": 160,
+          "height": 260
+        },
+        {
+          "id": "slate_cover_2",
+          "x": 820,
+          "y": 700,
+          "width": 280,
+          "height": 100
+        },
+        {
+          "id": "slate_cover_3",
+          "x": 1330,
+          "y": 450,
+          "width": 160,
+          "height": 260
+        }
+      ],
+      "doors": [
+        {
+          "id": "north",
+          "x": 960,
+          "y": 78,
+          "facing": "south"
+        },
+        {
+          "id": "east",
+          "x": 1842,
+          "y": 540,
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "x": 960,
+          "y": 1002,
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "x": 78,
+          "y": 540,
+          "facing": "east"
+        }
+      ],
+      "pickups": [
+        {
+          "id": "lower_cache",
+          "x": 650,
+          "y": 780
+        },
+        {
+          "id": "upper_cache",
+          "x": 1270,
+          "y": 280
+        }
+      ],
+      "spawns": [
+        {
+          "delay": 0.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 0.65,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 1.1,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 1.55,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 5.4,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 5.8500000000000005,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 6.300000000000001,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 6.750000000000001,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 10.6,
+          "door": "north",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 11.049999999999999,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 11.5,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 11.95,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 15.8,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 16.25,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 16.7,
+          "door": "south",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 17.150000000000002,
+          "door": "east",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 21,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 21.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 21.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 22.35,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 26.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 26.65,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 27.099999999999998,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 27.55,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 31.400000000000002,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 31.85,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 32.300000000000004,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 32.75000000000001,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 36.6,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 37.050000000000004,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 37.5,
+          "door": "west",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 37.95,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 41.800000000000004,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 42.25000000000001,
+          "door": "south",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 42.7,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 43.150000000000006,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 47.00000000000001,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 47.45000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 47.900000000000006,
+          "door": "west",
+          "enemy": "RANGED"
+        }
+      ]
+    },
+    {
+      "id": "room_2",
+      "position": [
+        -1,
+        0
+      ],
+      "type": "COMBAT",
+      "label": "Combat",
+      "boss": false,
+      "active_cap": 11,
+      "release_threshold": 5,
+      "reward_gold": 80,
+      "reward_xp": 20,
+      "obstacles": [
+        {
+          "id": "slate_cover_1",
+          "x": 460,
+          "y": 280,
+          "width": 260,
+          "height": 100
+        },
+        {
+          "id": "slate_cover_2",
+          "x": 1180,
+          "y": 700,
+          "width": 260,
+          "height": 100
+        },
+        {
+          "id": "slate_cover_3",
+          "x": 1120,
+          "y": 340,
+          "width": 140,
+          "height": 200
+        }
+      ],
+      "doors": [
+        {
+          "id": "north",
+          "x": 820,
+          "y": 78,
+          "facing": "south"
+        },
+        {
+          "id": "east",
+          "x": 1842,
+          "y": 430,
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "x": 1100,
+          "y": 1002,
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "x": 78,
+          "y": 650,
+          "facing": "east"
+        }
+      ],
+      "pickups": [
+        {
+          "id": "lower_cache",
+          "x": 650,
+          "y": 780
+        },
+        {
+          "id": "upper_cache",
+          "x": 1270,
+          "y": 280
+        }
+      ],
+      "spawns": [
+        {
+          "delay": 0.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 0.65,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 1.1,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 1.55,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 5.4,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 5.8500000000000005,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 6.300000000000001,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 6.750000000000001,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 10.6,
+          "door": "north",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 11.049999999999999,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 11.5,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 11.95,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 15.8,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 16.25,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 16.7,
+          "door": "south",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 17.150000000000002,
+          "door": "east",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 21,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 21.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 21.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 22.35,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 26.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 26.65,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 27.099999999999998,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 27.55,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 31.400000000000002,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 31.85,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 32.300000000000004,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 32.75000000000001,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 36.6,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 37.050000000000004,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 37.5,
+          "door": "west",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 37.95,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 41.800000000000004,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 42.25000000000001,
+          "door": "south",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 42.7,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 43.150000000000006,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 47.00000000000001,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 47.45000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 47.900000000000006,
+          "door": "west",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 48.35000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 52.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 52.650000000000006,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 53.1,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 53.550000000000004,
+          "door": "south",
+          "enemy": "CHASER"
+        }
+      ]
+    },
+    {
+      "id": "room_3",
+      "position": [
+        1,
+        0
+      ],
+      "type": "TREASURE",
+      "label": "Treasure",
+      "boss": false,
+      "active_cap": 0,
+      "release_threshold": 0,
+      "reward_gold": 120,
+      "reward_xp": 0,
+      "obstacles": [
+        {
+          "id": "slate_cover_1",
+          "x": 440,
+          "y": 400,
+          "width": 150,
+          "height": 260
+        },
+        {
+          "id": "slate_cover_2",
+          "x": 880,
+          "y": 250,
+          "width": 150,
+          "height": 160
+        },
+        {
+          "id": "slate_cover_3",
+          "x": 1330,
+          "y": 650,
+          "width": 150,
+          "height": 200
+        }
+      ],
+      "doors": [
+        {
+          "id": "north",
+          "x": 1060,
+          "y": 78,
+          "facing": "south"
+        },
+        {
+          "id": "east",
+          "x": 1842,
+          "y": 620,
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "x": 860,
+          "y": 1002,
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "x": 78,
+          "y": 460,
+          "facing": "east"
+        }
+      ],
+      "pickups": [
+        {
+          "id": "lower_cache",
+          "x": 650,
+          "y": 780
+        },
+        {
+          "id": "upper_cache",
+          "x": 1270,
+          "y": 280
+        }
+      ],
+      "spawns": []
+    },
+    {
+      "id": "room_4",
+      "position": [
+        0,
+        1
+      ],
+      "type": "ELITE",
+      "label": "Elite",
+      "boss": false,
+      "active_cap": 13,
+      "release_threshold": 6,
+      "reward_gold": 80,
+      "reward_xp": 90,
+      "obstacles": [
+        {
+          "id": "slate_cover_1",
+          "x": 430,
+          "y": 320,
+          "width": 160,
+          "height": 260
+        },
+        {
+          "id": "slate_cover_2",
+          "x": 820,
+          "y": 700,
+          "width": 280,
+          "height": 100
+        },
+        {
+          "id": "slate_cover_3",
+          "x": 1330,
+          "y": 450,
+          "width": 160,
+          "height": 260
+        }
+      ],
+      "doors": [
+        {
+          "id": "north",
+          "x": 960,
+          "y": 78,
+          "facing": "south"
+        },
+        {
+          "id": "east",
+          "x": 1842,
+          "y": 540,
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "x": 960,
+          "y": 1002,
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "x": 78,
+          "y": 540,
+          "facing": "east"
+        }
+      ],
+      "pickups": [
+        {
+          "id": "lower_cache",
+          "x": 650,
+          "y": 780
+        },
+        {
+          "id": "upper_cache",
+          "x": 1270,
+          "y": 280
+        }
+      ],
+      "spawns": [
+        {
+          "delay": 0.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 0.65,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 1.1,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 1.55,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 5.4,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 5.8500000000000005,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 6.300000000000001,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 6.750000000000001,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 10.6,
+          "door": "north",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 11.049999999999999,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 11.5,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 11.95,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 15.8,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 16.25,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 16.7,
+          "door": "south",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 17.150000000000002,
+          "door": "east",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 21,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 21.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 21.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 22.35,
+          "door": "west",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 26.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 26.65,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 27.099999999999998,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 27.55,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 31.400000000000002,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 31.85,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 32.300000000000004,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 32.75000000000001,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 36.6,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 37.050000000000004,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 37.5,
+          "door": "west",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 37.95,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 41.800000000000004,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 42.25000000000001,
+          "door": "south",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 42.7,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 43.150000000000006,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 47.00000000000001,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 47.45000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 47.900000000000006,
+          "door": "west",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 48.35000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 52.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 52.650000000000006,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 53.1,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 53.550000000000004,
+          "door": "south",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 57.400000000000006,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 57.85000000000001,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 58.300000000000004,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 58.75000000000001,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 62.60000000000001,
+          "door": "north",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 63.05000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 63.50000000000001,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 63.95000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 67.80000000000001,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 68.25000000000001,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 68.70000000000002,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 69.15,
+          "door": "east",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 73,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 73.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 73.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 74.35,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 78.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 78.65,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 79.10000000000001,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 79.55,
+          "door": "north",
+          "enemy": "CHASER"
+        }
+      ]
+    },
+    {
+      "id": "room_5",
+      "position": [
+        -1,
+        1
+      ],
+      "type": "COMBAT",
+      "label": "Combat",
+      "boss": false,
+      "active_cap": 14,
+      "release_threshold": 7,
+      "reward_gold": 80,
+      "reward_xp": 0,
+      "obstacles": [
+        {
+          "id": "slate_cover_1",
+          "x": 460,
+          "y": 280,
+          "width": 260,
+          "height": 100
+        },
+        {
+          "id": "slate_cover_2",
+          "x": 1180,
+          "y": 700,
+          "width": 260,
+          "height": 100
+        },
+        {
+          "id": "slate_cover_3",
+          "x": 1120,
+          "y": 340,
+          "width": 140,
+          "height": 200
+        }
+      ],
+      "doors": [
+        {
+          "id": "north",
+          "x": 820,
+          "y": 78,
+          "facing": "south"
+        },
+        {
+          "id": "east",
+          "x": 1842,
+          "y": 430,
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "x": 1100,
+          "y": 1002,
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "x": 78,
+          "y": 650,
+          "facing": "east"
+        }
+      ],
+      "pickups": [
+        {
+          "id": "lower_cache",
+          "x": 650,
+          "y": 780
+        },
+        {
+          "id": "upper_cache",
+          "x": 1270,
+          "y": 280
+        }
+      ],
+      "spawns": [
+        {
+          "delay": 0.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 0.65,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 1.1,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 1.55,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 5.4,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 5.8500000000000005,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 6.300000000000001,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 6.750000000000001,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 10.6,
+          "door": "north",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 11.049999999999999,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 11.5,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 11.95,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 15.8,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 16.25,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 16.7,
+          "door": "south",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 17.150000000000002,
+          "door": "east",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 21,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 21.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 21.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 22.35,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 26.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 26.65,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 27.099999999999998,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 27.55,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 31.400000000000002,
+          "door": "east",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 31.85,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 32.300000000000004,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 32.75000000000001,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 36.6,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 37.050000000000004,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 37.5,
+          "door": "west",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 37.95,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 41.800000000000004,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 42.25000000000001,
+          "door": "south",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 42.7,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 43.150000000000006,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 47.00000000000001,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 47.45000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 47.900000000000006,
+          "door": "west",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 48.35000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 52.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 52.650000000000006,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 53.1,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 53.550000000000004,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 57.400000000000006,
+          "door": "north",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 57.85000000000001,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 58.300000000000004,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 58.75000000000001,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 62.60000000000001,
+          "door": "north",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 63.05000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 63.50000000000001,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 63.95000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 67.80000000000001,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 68.25000000000001,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 68.70000000000002,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 69.15,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 73,
+          "door": "north",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 73.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 73.9,
+          "door": "south",
+          "enemy": "CHASER"
+        }
+      ]
+    },
+    {
+      "id": "room_6",
+      "position": [
+        1,
+        1
+      ],
+      "type": "COMBAT",
+      "label": "Combat",
+      "boss": false,
+      "active_cap": 15,
+      "release_threshold": 7,
+      "reward_gold": 80,
+      "reward_xp": 135,
+      "obstacles": [
+        {
+          "id": "slate_cover_1",
+          "x": 440,
+          "y": 400,
+          "width": 150,
+          "height": 260
+        },
+        {
+          "id": "slate_cover_2",
+          "x": 880,
+          "y": 250,
+          "width": 150,
+          "height": 160
+        },
+        {
+          "id": "slate_cover_3",
+          "x": 1330,
+          "y": 650,
+          "width": 150,
+          "height": 200
+        }
+      ],
+      "doors": [
+        {
+          "id": "north",
+          "x": 1060,
+          "y": 78,
+          "facing": "south"
+        },
+        {
+          "id": "east",
+          "x": 1842,
+          "y": 620,
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "x": 860,
+          "y": 1002,
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "x": 78,
+          "y": 460,
+          "facing": "east"
+        }
+      ],
+      "pickups": [
+        {
+          "id": "lower_cache",
+          "x": 650,
+          "y": 780
+        },
+        {
+          "id": "upper_cache",
+          "x": 1270,
+          "y": 280
+        }
+      ],
+      "spawns": [
+        {
+          "delay": 0.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 0.65,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 1.1,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 1.55,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 5.4,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 5.8500000000000005,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 6.300000000000001,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 6.750000000000001,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 10.6,
+          "door": "north",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 11.049999999999999,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 11.5,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 11.95,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 15.8,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 16.25,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 16.7,
+          "door": "south",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 17.150000000000002,
+          "door": "east",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 21,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 21.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 21.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 22.35,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 26.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 26.65,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 27.099999999999998,
+          "door": "east",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 27.55,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 31.400000000000002,
+          "door": "east",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 31.85,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 32.300000000000004,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 32.75000000000001,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 36.6,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 37.050000000000004,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 37.5,
+          "door": "west",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 37.95,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 41.800000000000004,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 42.25000000000001,
+          "door": "south",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 42.7,
+          "door": "east",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 43.150000000000006,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 47.00000000000001,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 47.45000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 47.900000000000006,
+          "door": "west",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 48.35000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 52.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 52.650000000000006,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 53.1,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 53.550000000000004,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 57.400000000000006,
+          "door": "north",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 57.85000000000001,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 58.300000000000004,
+          "door": "east",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 58.75000000000001,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 62.60000000000001,
+          "door": "north",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 63.05000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 63.50000000000001,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 63.95000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 67.80000000000001,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 68.25000000000001,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 68.70000000000002,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 69.15,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 73,
+          "door": "north",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 73.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 73.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 74.35,
+          "door": "west",
+          "enemy": "BRUTE"
+        },
+        {
+          "delay": 78.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 78.65,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 79.10000000000001,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 79.55,
+          "door": "north",
+          "enemy": "HUNTER"
+        }
+      ]
+    },
+    {
+      "id": "room_7",
+      "position": [
+        0,
+        2
+      ],
+      "type": "ELITE",
+      "label": "Elite",
+      "boss": false,
+      "active_cap": 15,
+      "release_threshold": 7,
+      "reward_gold": 80,
+      "reward_xp": 0,
+      "obstacles": [
+        {
+          "id": "slate_cover_1",
+          "x": 430,
+          "y": 320,
+          "width": 160,
+          "height": 260
+        },
+        {
+          "id": "slate_cover_2",
+          "x": 820,
+          "y": 700,
+          "width": 280,
+          "height": 100
+        },
+        {
+          "id": "slate_cover_3",
+          "x": 1330,
+          "y": 450,
+          "width": 160,
+          "height": 260
+        }
+      ],
+      "doors": [
+        {
+          "id": "north",
+          "x": 960,
+          "y": 78,
+          "facing": "south"
+        },
+        {
+          "id": "east",
+          "x": 1842,
+          "y": 540,
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "x": 960,
+          "y": 1002,
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "x": 78,
+          "y": 540,
+          "facing": "east"
+        }
+      ],
+      "pickups": [
+        {
+          "id": "lower_cache",
+          "x": 650,
+          "y": 780
+        },
+        {
+          "id": "upper_cache",
+          "x": 1270,
+          "y": 280
+        }
+      ],
+      "spawns": [
+        {
+          "delay": 0.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 0.65,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 1.1,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 1.55,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 5.4,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 5.8500000000000005,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 6.300000000000001,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 6.750000000000001,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 10.6,
+          "door": "north",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 11.049999999999999,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 11.5,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 11.95,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 15.8,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 16.25,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 16.7,
+          "door": "south",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 17.150000000000002,
+          "door": "east",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 21,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 21.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 21.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 22.35,
+          "door": "west",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 26.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 26.65,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 27.099999999999998,
+          "door": "east",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 27.55,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 31.400000000000002,
+          "door": "east",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 31.85,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 32.300000000000004,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 32.75000000000001,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 36.6,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 37.050000000000004,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 37.5,
+          "door": "west",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 37.95,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 41.800000000000004,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 42.25000000000001,
+          "door": "south",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 42.7,
+          "door": "east",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 43.150000000000006,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 47.00000000000001,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 47.45000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 47.900000000000006,
+          "door": "west",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 48.35000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 52.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 52.650000000000006,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 53.1,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 53.550000000000004,
+          "door": "south",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 57.400000000000006,
+          "door": "north",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 57.85000000000001,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 58.300000000000004,
+          "door": "east",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 58.75000000000001,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 62.60000000000001,
+          "door": "north",
+          "enemy": "RANGED_RAIN"
+        },
+        {
+          "delay": 63.05000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 63.50000000000001,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 63.95000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 67.80000000000001,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 68.25000000000001,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 68.70000000000002,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 69.15,
+          "door": "east",
+          "enemy": "ELITE"
+        },
+        {
+          "delay": 73,
+          "door": "north",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 73.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 73.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 74.35,
+          "door": "west",
+          "enemy": "BRUTE"
+        },
+        {
+          "delay": 78.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 78.65,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 79.10000000000001,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 79.55,
+          "door": "north",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 83.4,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 83.85000000000001,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 84.30000000000001,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 84.75,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 88.60000000000001,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 89.05000000000001,
+          "door": "east",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 89.50000000000001,
+          "door": "west",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 89.95,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 93.80000000000001,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 94.25000000000001,
+          "door": "south",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 94.70000000000002,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 95.15,
+          "door": "north",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 99,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 99.45,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 99.9,
+          "door": "west",
+          "enemy": "RANGED_THREE"
+        }
+      ]
+    },
+    {
+      "id": "room_8",
+      "position": [
+        -1,
+        2
+      ],
+      "type": "ELITE",
+      "label": "Boss",
+      "boss": true,
+      "active_cap": 1,
+      "release_threshold": 0,
+      "reward_gold": 180,
+      "reward_xp": 385,
+      "obstacles": [
+        {
+          "id": "slate_cover_1",
+          "x": 360,
+          "y": 400,
+          "width": 160,
+          "height": 220
+        },
+        {
+          "id": "slate_cover_2",
+          "x": 1400,
+          "y": 400,
+          "width": 160,
+          "height": 220
+        }
+      ],
+      "doors": [
+        {
+          "id": "north",
+          "x": 960,
+          "y": 78,
+          "facing": "south"
+        },
+        {
+          "id": "east",
+          "x": 1842,
+          "y": 540,
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "x": 960,
+          "y": 1002,
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "x": 78,
+          "y": 540,
+          "facing": "east"
+        }
+      ],
+      "pickups": [
+        {
+          "id": "lower_cache",
+          "x": 650,
+          "y": 780
+        },
+        {
+          "id": "upper_cache",
+          "x": 1270,
+          "y": 280
+        }
+      ],
+      "spawns": []
+    },
+    {
+      "id": "room_975a6663",
+      "position": [
+        0,
+        -1
+      ],
+      "type": "COMBAT",
+      "label": "New room",
+      "boss": false,
+      "active_cap": 15,
+      "release_threshold": 7,
+      "reward_gold": 80,
+      "reward_xp": 135,
+      "obstacles": [
+        {
+          "id": "slate_cover_1",
+          "x": 440,
+          "y": 400,
+          "width": 150,
+          "height": 260
+        },
+        {
+          "id": "slate_cover_2",
+          "x": 880,
+          "y": 250,
+          "width": 150,
+          "height": 160
+        },
+        {
+          "id": "slate_cover_3",
+          "x": 1330,
+          "y": 650,
+          "width": 150,
+          "height": 200
+        }
+      ],
+      "doors": [
+        {
+          "id": "north",
+          "x": 1060,
+          "y": 78,
+          "facing": "south"
+        },
+        {
+          "id": "east",
+          "x": 1842,
+          "y": 620,
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "x": 860,
+          "y": 1002,
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "x": 78,
+          "y": 460,
+          "facing": "east"
+        }
+      ],
+      "pickups": [
+        {
+          "id": "lower_cache",
+          "x": 650,
+          "y": 780
+        },
+        {
+          "id": "upper_cache",
+          "x": 1270,
+          "y": 280
+        }
+      ],
+      "spawns": [
+        {
+          "delay": 0.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 0.65,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 1.1,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 1.55,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 5.4,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 5.8500000000000005,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 6.300000000000001,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 6.750000000000001,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 10.6,
+          "door": "north",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 11.049999999999999,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 11.5,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 11.95,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 15.8,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 16.25,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 16.7,
+          "door": "south",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 17.150000000000002,
+          "door": "east",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 21,
+          "door": "north",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 21.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 21.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 22.35,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 26.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 26.65,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 27.099999999999998,
+          "door": "east",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 27.55,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 31.400000000000002,
+          "door": "east",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 31.85,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 32.300000000000004,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 32.75000000000001,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 36.6,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 37.050000000000004,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 37.5,
+          "door": "west",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 37.95,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 41.800000000000004,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 42.25000000000001,
+          "door": "south",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 42.7,
+          "door": "east",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 43.150000000000006,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 47.00000000000001,
+          "door": "north",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 47.45000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 47.900000000000006,
+          "door": "west",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 48.35000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 52.2,
+          "door": "north",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 52.650000000000006,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 53.1,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 53.550000000000004,
+          "door": "south",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 57.400000000000006,
+          "door": "north",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 57.85000000000001,
+          "door": "west",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 58.300000000000004,
+          "door": "east",
+          "enemy": "RANGED_FIVE"
+        },
+        {
+          "delay": 58.75000000000001,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 62.60000000000001,
+          "door": "north",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 63.05000000000001,
+          "door": "east",
+          "enemy": "JUMPER"
+        },
+        {
+          "delay": 63.50000000000001,
+          "door": "west",
+          "enemy": "CHASER_TANK"
+        },
+        {
+          "delay": 63.95000000000001,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 67.80000000000001,
+          "door": "west",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 68.25000000000001,
+          "door": "north",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 68.70000000000002,
+          "door": "south",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 69.15,
+          "door": "east",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 73,
+          "door": "north",
+          "enemy": "JUMPER_FAST"
+        },
+        {
+          "delay": 73.45,
+          "door": "east",
+          "enemy": "RANGED_THREE"
+        },
+        {
+          "delay": 73.9,
+          "door": "south",
+          "enemy": "CHASER"
+        },
+        {
+          "delay": 74.35,
+          "door": "west",
+          "enemy": "BRUTE"
+        },
+        {
+          "delay": 78.2,
+          "door": "south",
+          "enemy": "HUNTER"
+        },
+        {
+          "delay": 78.65,
+          "door": "west",
+          "enemy": "CHASER_FAST"
+        },
+        {
+          "delay": 79.10000000000001,
+          "door": "east",
+          "enemy": "RANGED"
+        },
+        {
+          "delay": 79.55,
+          "door": "north",
+          "enemy": "HUNTER"
+        }
+      ]
+    }
+  ]
+}

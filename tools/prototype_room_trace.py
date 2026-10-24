@@ -9,19 +9,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pygame
 
 from definitions.prototype_room_definitions import (
+    COMBAT_LAYOUT_VARIANTS,
     PROTOTYPE_ACTIVE_ENEMY_CAP,
     PROTOTYPE_DOORS,
     PROTOTYPE_OBSTACLES,
     PROTOTYPE_SPAWN_PLAN,
 )
 from game import Game
-from settings import MAP_SIZE
 from settings import PERK_PICK_LIMIT
 from entities.enemy import EnemyType
 from entities.enemy import Enemy
+from entities.projectile import Projectile
 from systems.perk_system import PERK_EFFECTS
-from systems.room_bounds import current_room_bounds
+from systems.room_bounds import HUB_ROOM_BOUNDS, current_room_bounds
 from systems.shooting_system import ShootingSystem
+from systems.xp_budget import (
+    STAGE_COMPLETION_XP,
+    STAGE_EXPECTED_ENEMY_XP,
+    level_for_cumulative_xp,
+)
+from systems.xp_progression import cumulative_xp_for_level
 from states.combat_state import handle_combat_events
 
 
@@ -109,18 +116,18 @@ def clear_active_stage_room(game):
 
 def trace_enemy_obstacle_collision(game):
     obstacle = game.room_obstacles[0]
-    enemy = Enemy(obstacle.left - 42, obstacle.centery - 17, EnemyType.CHASER, difficulty=1.0)
+    enemy = Enemy(obstacle.left - 74, obstacle.centery - 28, EnemyType.CHASER, difficulty=1.0)
     before_right = enemy.rect.right
     enemy.update(0.25, pygame.Rect(obstacle.centerx + 220, obstacle.centery - 18, 36, 36), [obstacle])
     assert_true(enemy.rect.right <= obstacle.left, "enemy should be blocked by prototype obstacle")
     assert_true(enemy.rect.right >= before_right, "enemy should still move until blocked")
 
-    ranged = Enemy(obstacle.left - 90, obstacle.centery - 17, EnemyType.RANGED, difficulty=1.0)
+    ranged = Enemy(obstacle.left - 110, obstacle.centery - 28, EnemyType.RANGED, difficulty=1.0)
     ranged.attack_cooldown = 0.0
     action = ranged.update(0.70, pygame.Rect(obstacle.right + 70, obstacle.centery - 17, 34, 34), [obstacle])
     assert_true(action is None and ranged.windup_action is None, "ranged enemy should not shoot through obstacle line of sight")
 
-    jumper = Enemy(obstacle.left - 42, obstacle.centery - 17, EnemyType.JUMPER, difficulty=1.0)
+    jumper = Enemy(obstacle.left - 74, obstacle.centery - 28, EnemyType.JUMPER, difficulty=1.0)
     jumper.leap_timer = 0.25
     jumper.leap_velocity = pygame.Vector2(900, 0)
     jumper.update(0.30, pygame.Rect(obstacle.right + 100, obstacle.centery - 17, 34, 34), [obstacle])
@@ -142,6 +149,11 @@ def trace_enemy_obstacle_collision(game):
     first = seeker._obstacle_seek_direction(direction)
     second = seeker._obstacle_seek_direction(pygame.Vector2(1, -1).normalize())
     assert_true(first == second and seeker.path_commit_timer > 0.0, "obstacle pathing should commit briefly instead of flip-flopping")
+
+    bullet = Projectile(obstacle.left - 24, obstacle.centery, pygame.Vector2(1, 0), damage=10, speed=900)
+    game.projectiles = [bullet]
+    game.update(0.05)
+    assert_true(not bullet.alive, "player projectiles should be destroyed by room obstacles")
 
 
 def trace_rapid_fire_timer_normalization(game):
@@ -185,11 +197,14 @@ def trace_space_dash_input(game):
     handle_combat_events(game, pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_q}))
     assert_true(game.player.dash_timer == 0.0, "Q should no longer trigger Dash in combat")
     handle_combat_events(game, pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_SPACE}))
+    handle_combat_events(game, pygame.event.Event(pygame.KEYUP, {"key": pygame.K_SPACE}))
     assert_true(game.player.dash_timer > 0.0, "Space should trigger Dash in combat")
 
 
 def trace_stage_sequence(game):
+    assert_true(getattr(game, "horde", None) is None, "normal Stage trace should not instantiate HordeSystem before entry")
     game.stage.start_stage()
+    assert_true(getattr(game, "horde", None) is None, "normal Stage entry should not instantiate HordeSystem")
     assert_true(game.stage.active, "stage should become active")
     assert_true(len(game.stage.rooms) == 8, "Stage 1 should contain 8 small rooms")
     assert_true(game.stage.rooms[0].spawn_plan and len(game.stage.rooms[0].spawn_plan) == 39, "stage room 1 should use scaled spawn plan")
@@ -197,6 +212,9 @@ def trace_stage_sequence(game):
     assert_true(game.prototype_room.elapsed < 0, "stage room should start with pre-combat grace")
     assert_true(current_room_bounds().width == 1920 and current_room_bounds().height == 1080, "stage rooms should use small bounds")
     assert_true(any(node.room.boss for node in game.stage.nodes), "stage map should include a boss node")
+    layout_ids = {room.layout.id for room in game.stage.rooms if not room.boss}
+    assert_true(len(layout_ids) >= 2, f"stage rooms should use multiple layout variants, got {layout_ids}")
+    assert_true(game.prototype_room.layout.id in layout_ids, "active prototype room should receive layout data from stage room")
     boss_node = next(node for node in game.stage.nodes if node.room.boss)
     distances = _stage_node_distances(game.stage)
     assert_true(distances[boss_node.grid_pos] == max(distances.values()), "boss room should be placed at a farthest map node")
@@ -206,14 +224,16 @@ def trace_stage_sequence(game):
     trace_rapid_fire_timer_normalization(game)
 
     game.player.gold = 77
-    game.player.level = 5
-    game.player.xp = 40
-    game.player.pending_level_ups = 2
+    game.player.level = 1
+    game.player.xp = 0
+    game.player.xp_to_next = 100
+    game.player.pending_level_ups = 0
     game.player.perk_counts["rapid_fire"] = 2
     game.upgrades.levels["power_rounds"] = 2
 
     visited = []
     cleared_positions = set()
+    expected_stage_xp = 0
     while game.stage.active:
         node = game.stage.current_node
         room = node.room
@@ -224,6 +244,15 @@ def trace_stage_sequence(game):
                 game.player.rect.center = blocked_door[2].center
                 assert_true(not game.stage.try_use_door(game.player.rect), "stage doors should stay locked until the room is cleared")
             clear_active_stage_room(game)
+            expected_completion_xp = STAGE_COMPLETION_XP[room.index]
+            visible_completion_xp = sum(pickup.value for pickup in game.loot.pickups if pickup.pickup_type == "xp")
+            assert_true(visible_completion_xp == expected_completion_xp, f"stage room {room.index} completion XP pickup mismatch: {visible_completion_xp}")
+            game.player.add_xp(STAGE_EXPECTED_ENEMY_XP[room.index])
+            game.loot.collect_remaining(game.player, game.effects, game.audio)
+            expected_stage_xp += STAGE_EXPECTED_ENEMY_XP[room.index] + expected_completion_xp
+            current_stage_xp = cumulative_xp_for_level(game.player.level) + game.player.xp
+            assert_true(game.player.level == level_for_cumulative_xp(expected_stage_xp), f"stage room {room.index} should leave player at budgeted level {level_for_cumulative_xp(expected_stage_xp)}, got {game.player.level}")
+            assert_true(current_stage_xp == expected_stage_xp, f"stage room {room.index} should collect budgeted Stage XP, got {current_stage_xp}")
             cleared_positions.add(node.grid_pos)
             assert_true(node.cleared, "cleared stage room should persist cleared state")
             if room.boss:
@@ -241,11 +270,12 @@ def trace_stage_sequence(game):
     assert_true(len(cleared_positions) == len(game.stage.nodes), f"stage traversal should clear every map node, got {len(cleared_positions)}")
     assert_true(visited[-1] == "ELITE", f"boss room should be the final cleared room, got {visited}")
     assert_true(game.stage.completed, "stage should mark completion")
+    assert_true(getattr(game, "horde", None) is None, "normal Stage completion should not instantiate HordeSystem")
     assert_true(game.player.gold >= 77, "stage completion should preserve gold")
     assert_true(game.player.level == 1 and game.player.xp == 0 and game.player.pending_level_ups == 0, "stage completion should reset level and pending perks")
     assert_true(game.player.perk_counts == {}, "stage completion should reset perks")
     assert_true(all(value == 0 for value in game.upgrades.levels.values()), "stage completion should reset upgrades")
-    assert_true((current_room_bounds().width, current_room_bounds().height) == (MAP_SIZE, MAP_SIZE), "hub should restore normal bounds after stage")
+    assert_true((current_room_bounds().width, current_room_bounds().height) == (HUB_ROOM_BOUNDS.width, HUB_ROOM_BOUNDS.height), "hub should use compact bounds after stage")
 
 
 def _stage_travel_to(game, target_pos):
@@ -305,6 +335,7 @@ def main():
     assert_true(tuple(game.camera.offset) == (0, 0), f"static camera should clamp to zero: {game.camera.offset}")
     assert_true(game.prototype_room.total_spawns == len(PROTOTYPE_SPAWN_PLAN), "prototype spawn count mismatch")
     assert_true(PROTOTYPE_ACTIVE_ENEMY_CAP == 10, "prototype active cap should match tuning target")
+    assert_true(len(COMBAT_LAYOUT_VARIANTS) >= 3, "combat room should expose default plus alternate layout data")
     assert_true(len(game.room_obstacles) == len(PROTOTYPE_OBSTACLES), "prototype obstacles not installed")
     assert_true(
         len(game.collision.get_colliders()) == len(PROTOTYPE_OBSTACLES),
@@ -348,7 +379,7 @@ def main():
 
     game.prototype_room.exit_to_hub()
     bounds = current_room_bounds()
-    assert_true((bounds.width, bounds.height) == (MAP_SIZE, MAP_SIZE), "normal bounds should restore after prototype exit")
+    assert_true((bounds.width, bounds.height) == (HUB_ROOM_BOUNDS.width, HUB_ROOM_BOUNDS.height), "prototype exit should return to compact hub bounds")
     assert_true(game.room_number == starting_room_number, "prototype room must not advance normal room_number")
 
     trace_stage_sequence(game)
@@ -360,7 +391,7 @@ def main():
         f"obstacles={len(PROTOTYPE_OBSTACLES)}"
     )
     print("vampire_combo=bat_chain_bounded trail_without_dash=True")
-    print("stage_sequence=8_rooms reset_build=True gold_preserved=True enemy_obstacle_collision=True movement_pickup=True")
+    print("stage_sequence=8_rooms reset_build=True gold_preserved=True enemy_obstacle_collision=True movement_pickup=True layout_variants>=2")
     print("telegraph=0.60s precombat=1.80s spawn_inside_bounds=True clear=True reward=True exit_to_hub=True")
 
 

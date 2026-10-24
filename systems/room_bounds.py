@@ -57,6 +57,7 @@ class RoomBounds:
 
 
 DEFAULT_ROOM_BOUNDS = RoomBounds()
+HUB_ROOM_BOUNDS = RoomBounds(0, 0, 1920, 1080)
 DEFAULT_ROOM_RECT = DEFAULT_ROOM_BOUNDS.rect
 _active_room_bounds = DEFAULT_ROOM_BOUNDS
 _active_room_rect = DEFAULT_ROOM_RECT

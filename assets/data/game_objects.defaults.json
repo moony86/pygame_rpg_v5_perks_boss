@@ -1,0 +1,12 @@
+{
+  "schema": "bluecube.objects.v1",
+  "objects": {
+    "hero": {"name": "Blue Cube", "art": "objects/hero_v1.png", "cell": -1, "width": 52, "height": 52, "health": 125, "speed": 375},
+    "portal": {"name": "Rift Gate", "art": "objects/portal_v1.png", "cell": -1, "width": 100, "height": 128, "pulse": 0.04},
+    "pistol": {"name": "Pistol", "art": "objects/pistol_v1.png", "cell": -1, "width": 32, "height": 32, "damage": 35, "cooldown": 0.45, "projectile_speed": 750},
+    "sword": {"name": "Ninja blade", "art": "objects/sword_v1.png", "cell": -1, "width": 58, "height": 58, "dash_damage": 24, "chain_range": 280, "chain_hops": 4},
+    "heal_potion": {"name": "Health Potion", "art": "objects/heal_potion_v1.png", "cell": -1, "width": 32, "height": 36, "small": 15, "medium": 25, "large": 35, "drop_chance": 0.035, "respawn": 0},
+    "dash_refresh": {"name": "Dash Charge", "art": "objects/dash_refresh_v1.png", "cell": -1, "width": 36, "height": 40, "duration": 1.8, "charges": 1, "respawn": 12},
+    "time_stop": {"name": "Time Stop Watch", "art": "objects/time_stop_watch_v2.png", "cell": -1, "width": 40, "height": 44, "duration": 2, "drop_chance": 0.025, "respawn": 0}
+  }
+}

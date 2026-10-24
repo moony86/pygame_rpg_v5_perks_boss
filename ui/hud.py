@@ -1,13 +1,14 @@
 import pygame
 from systems.shooting_system import crit_stats
-from settings import SCREEN_WIDTH, SCREEN_HEIGHT, BLACK, RED, YELLOW, CYAN, ROOMS_TO_BOSS
+from settings import SCREEN_WIDTH, SCREEN_HEIGHT, BLACK, RED, YELLOW, CYAN, ROOMS_TO_BOSS, DASH_COOLDOWN, PLAYER_SKILL_COOLDOWN
+from ui.common import fitted_text
 
 
-def _txt(surface, font, text, x, y, color, shadow=True):
+def _txt(surface, font, text, x, y, color, shadow=True, max_width=None):
     if shadow:
-        s = font.render(text, True, (0, 0, 0))
+        s = fitted_text(font, text, (0, 0, 0), max_width) if max_width else font.render(text, True, (0, 0, 0))
         surface.blit(s, (x + 1, y + 1))
-    r = font.render(text, True, color)
+    r = fitted_text(font, text, color, max_width) if max_width else font.render(text, True, color)
     surface.blit(r, (x, y))
 
 
@@ -28,6 +29,22 @@ def _bar(surface, x, y, w, h, ratio, fill_col, bg_col=(28, 30, 42)):
     pygame.draw.rect(surface, (90, 115, 165), (x, y, w, h), 1, border_radius=h)
 
 
+def _segmented_dash_bar(surface, x, y, w, h, player):
+    max_charges = max(1, int(getattr(player, "max_dash_charges", 1)))
+    charges = max(0.0, min(float(max_charges), float(getattr(player, "dash_charges", max_charges))))
+    refill = max(0.0, float(getattr(player, "dash_charge_refill_timer", 0.0)))
+    refill_total = 1.35
+    gap = 4
+    seg_w = max(1, (w - gap * (max_charges - 1)) // max_charges)
+    for index in range(max_charges):
+        sx = x + index * (seg_w + gap)
+        ratio = max(0.0, min(1.0, charges - index))
+        if ratio <= 0.0 and index <= int(charges) and charges < max_charges:
+            ratio = 1.0 - min(1.0, refill / refill_total)
+        col = CYAN if ratio >= 1.0 else (45, 125, 165)
+        _bar(surface, sx, y, seg_w, h, ratio, col)
+
+
 def _format_time(seconds):
     seconds = max(0, int(seconds))
     return f"{seconds // 60}:{seconds % 60:02d}"
@@ -43,13 +60,14 @@ def vampire_hud_visible(player):
 
 
 def vampire_hud_rect():
-    return pygame.Rect(12, 196, 242, 98)
+    return pygame.Rect(12, 208, 242, 98)
 
 
 def hud_occupied_rects(font=None):
-    left = pygame.Rect(12, 12, 242, 172)
-    right = pygame.Rect(SCREEN_WIDTH - 246 - 12, 12, 246, 148)
-    minimap = pygame.Rect(SCREEN_WIDTH - 150 - 14, 14 + 280, 150, 150)
+    details = pygame.key.get_pressed()[pygame.K_TAB]
+    left = pygame.Rect(12, 12, 360 if details else 290, 188 if details else 140)
+    right = pygame.Rect(SCREEN_WIDTH - 300, 12, 288, 148 if details else 104)
+    minimap = pygame.Rect(SCREEN_WIDTH - 150 - 14, 14 + 280, 150, 150) if details else pygame.Rect(0,0,0,0)
     wave_notice = pygame.Rect(0, 0, 500, 78)
     wave_notice.center = (SCREEN_WIDTH // 2, 210)
     message = pygame.Rect(22, SCREEN_HEIGHT - 38, SCREEN_WIDTH - 44, 26)
@@ -120,10 +138,15 @@ def _draw_vampire_hud(surface, font, player):
 def draw_hud(surface, font, player, room_number, room_kills, room_target,
              enemies_count, state_name, room_name, room_timer, objective_label="Kills", run_timer=0.0,
              room_total=ROOMS_TO_BOSS):
+    if not pygame.key.get_pressed()[pygame.K_TAB]:
+        _draw_compact_hud(surface, font, player, room_number, room_kills,
+                          room_target, state_name, run_timer, room_total)
+        return
     pad = 12
 
     lx, ly = pad, pad
-    lw, lh = 242, 172
+    details = pygame.key.get_pressed()[pygame.K_TAB]
+    lw, lh = (360, 188) if details else (242, 144)
     _panel(surface, lx, ly, lw, lh)
 
     hp_ratio = player.health / max(1, player.max_health)
@@ -137,14 +160,27 @@ def draw_hud(surface, font, player, room_number, room_kills, room_target,
 
     _txt(surface, font, f"Gold {player.gold}", lx + 10, ly + 74, (235, 185, 55))
     stat_col = (175, 215, 245)
-    _txt(surface, font, f"DMG +{player.damage_bonus}  Shots {player.projectile_count}  Pierce {player.pierce}", lx + 10, ly + 100, stat_col)
+    if details:
+        _txt(surface, font, f"DMG +{player.damage_bonus}  Shots {player.projectile_count}  Pierce {player.pierce}", lx + 10, ly + 100, stat_col, max_width=lw - 20)
     _, crit_multiplier = crit_stats(player)
-    _txt(surface, font, f"Crit {int(player.crit_chance * 100)}% x{crit_multiplier:.2f}  FR x{player.fire_rate_multiplier:.2f}", lx + 10, ly + 122, stat_col)
+    if details:
+        _txt(surface, font, f"Crit {int(player.crit_chance * 100)}% x{crit_multiplier:.2f}  FR x{player.fire_rate_multiplier:.2f}", lx + 10, ly + 122, stat_col, max_width=lw - 20)
 
-    dash_ratio = 1.0 if player.dash_cooldown_timer <= 0 else 1 - player.dash_cooldown_timer / 4.5
-    dash_col = CYAN if dash_ratio >= 1.0 else (45, 125, 165)
-    _txt(surface, font, "Space Dash", lx + 10, ly + 145, dash_col)
-    _bar(surface, lx + 118, ly + 151, lw - 130, 8, dash_ratio, dash_col)
+    skill = getattr(player, "active_skill", "dash")
+    if skill == "dash" and getattr(player, "max_dash_charges", 1) > 1:
+        dash_col = CYAN if getattr(player, "dash_charges", 0) > 0 else (45, 125, 165)
+        _txt(surface, font, "Space: Ninja Dash", lx + 10, ly + lh - 38, dash_col)
+        _segmented_dash_bar(surface, lx + 10, ly + lh - 11, lw - 20, 6, player)
+    else:
+        remaining = getattr(player, "skill_cooldown_timer", 0.0)
+        total = PLAYER_SKILL_COOLDOWN * getattr(player, "skill_cooldown_multiplier", 1.0)
+        if skill == "dash":
+            remaining = max(remaining, player.dash_cooldown_timer)
+            total = max(total, DASH_COOLDOWN)
+        dash_ratio = max(0.0, min(1.0, 1 - remaining / max(0.01, total)))
+        dash_col = CYAN if dash_ratio >= 1.0 else (45, 125, 165)
+        _txt(surface, font, f"Space: {skill.title()}", lx + 10, ly + lh - 38, dash_col, max_width=lw - 20)
+        _bar(surface, lx + 10, ly + lh - 11, lw - 20, 6, dash_ratio, dash_col)
 
     rw, rh = 246, 148
     rx = SCREEN_WIDTH - rw - pad
@@ -161,9 +197,13 @@ def draw_hud(surface, font, player, room_number, room_kills, room_target,
     _txt(surface, font, title, rx + rw // 2 - font.size(title)[0] // 2, ry + 8, room_col)
     pygame.draw.line(surface, room_col, (rx + 12, ry + 32), (rx + rw - 12, ry + 32), 1)
 
-    _txt(surface, font, f"Room {room_number}/{room_total}", rx + 12, ry + 42, (220, 225, 230))
-    if room_name:
-        _txt(surface, font, room_name, rx + 12, ry + 64, (185, 190, 230))
+    if state_name == "HUB":
+        _txt(surface, font, "Stage 1", rx + 12, ry + 42, (220, 225, 230))
+        _txt(surface, font, f"Rooms {max(0, min(room_number, room_total))}/{room_total}", rx + 12, ry + 64, (185, 190, 230))
+    else:
+        _txt(surface, font, f"Room {room_number}/{room_total}", rx + 12, ry + 42, (220, 225, 230))
+        if room_name:
+            _txt(surface, font, room_name, rx + 12, ry + 64, (185, 190, 230))
 
     objective_ratio = min(1.0, room_kills / max(1, room_target))
     _txt(surface, font, f"{objective_label} {room_kills}/{room_target}", rx + 12, ry + 88, (225, 225, 230))
@@ -175,3 +215,50 @@ def draw_hud(surface, font, player, room_number, room_kills, room_target,
     tx = SCREEN_WIDTH // 2 - font.size(timer_text)[0] // 2
     _txt(surface, font, timer_text, tx, 12, (220, 235, 245))
     _draw_vampire_hud(surface, font, player)
+
+
+def _draw_compact_hud(surface, font, player, room_number, kills, target, state, run_time, total):
+    """Gameplay first; expanded statistics and route remain available on Tab."""
+    ink, muted, danger, accent, gold = (235,240,248), (160,180,200), (240,70,90), (65,220,245), (245,202,80)
+    x, y, width = 22, 20, 270
+    from ui.cube_health import draw as draw_cube_health
+    from systems.object_catalog import sprite
+    draw_cube_health(surface,player,x,y)
+    crystal=sprite('visual_xp_tier_1',size=(22,26))
+    coin=sprite('visual_gold',size=(24,24),frame=int(player.anim_time*10))
+    if crystal is not None:
+        surface.blit(crystal,(x,y+45))
+    if coin is not None:
+        surface.blit(coin,(x+153,y+46))
+    _txt(surface, font, str(player.level), x+31, y+48, ink)
+    _txt(surface, font, str(player.gold), x+185, y+48, gold)
+    _bar(surface, x, y+76, width, 4, player.xp/max(1,player.xp_to_next), (150,125,245))
+    skill = getattr(player,'active_skill','dash')
+    dash_icon=sprite('dash_refresh',size=(25,28))
+    if dash_icon is not None:
+        surface.blit(dash_icon,(x,y+91))
+    _txt(surface, font, '[Space] '+('Parry / Dash' if getattr(player,'ninja_dash_charges_enabled',False) else skill.title()), x+33, y+91, accent)
+    if skill=='dash' and getattr(player,'max_dash_charges',1)>1:
+        _segmented_dash_bar(surface,x,y+120,width,5,player)
+    else:
+        remaining = getattr(player,'skill_cooldown_timer',0.)
+        duration = PLAYER_SKILL_COOLDOWN*getattr(player,'skill_cooldown_multiplier',1.)
+        if skill=='dash':
+            remaining=max(remaining,player.dash_cooldown_timer)
+            duration=max(duration,DASH_COOLDOWN)
+        _bar(surface,x,y+120,width,5,1-remaining/max(.01,duration),accent)
+    # Reserve enough space for the labels; never draw bars through their text.
+    if vampire_hud_visible(player):
+        data=vampire_hud_data(player)
+        _txt(surface,font,data['blood_text'],x,y+144,(245,110,140))
+        _bar(surface,x,y+172,width,5,data['blood_ratio'],danger)
+        if getattr(player,'vampire_feast_unlocked',False):
+            _txt(surface,font,data['feast_text'],x,y+186,muted)
+            _bar(surface,x,y+214,width,5,data['feast_ratio'],(195,85,145))
+    text = 'HUB' if state=='HUB' else f'Room {room_number}/{total}  -  WARDEN' if state=='BOSS' else f'Room {room_number}/{total}  -  Kills {kills}/{target}'
+    right=SCREEN_WIDTH-22-font.size(text)[0]
+    _txt(surface,font,text,right,20,ink)
+    clock=_format_time(run_time)
+    _txt(surface,font,clock,SCREEN_WIDTH-22-font.size(clock)[0],50,muted)
+    _txt(surface,font,'[Tab] Stats / map',SCREEN_WIDTH-220,82,muted)
+    # The temporal overlay owns the stopwatch countdown; do not duplicate it here.

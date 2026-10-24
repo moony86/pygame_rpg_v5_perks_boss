@@ -1,4 +1,5 @@
 DIALOGUES = {
+    "seer_stage": "The dungeon branches. Clear a room, then check the map and labelled doors. The boss waits at the far end.",
     "blacksmith_intro": "Gold becomes steel. Press 1, 2, or 3 to upgrade your weapon.",
     "blacksmith_return": "Back already? Upgrade before you go in again.",
     "blacksmith_rich": "You are carrying enough gold to matter. Press 1, 2, or 3.",

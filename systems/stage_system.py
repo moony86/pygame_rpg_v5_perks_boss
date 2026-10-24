@@ -4,10 +4,11 @@ import random
 import pygame
 
 from definitions.prototype_room_definitions import (
+    COMBAT_LAYOUT_VARIANTS,
+    DEFAULT_PROTOTYPE_LAYOUT,
     PROTOTYPE_DOORS,
     PROTOTYPE_OBSTACLES,
     PROTOTYPE_REWARD_GOLD,
-    PROTOTYPE_REWARD_XP,
     PROTOTYPE_ROOM_HEIGHT,
     PROTOTYPE_ROOM_WIDTH,
     PROTOTYPE_SPAWN_PLAN,
@@ -18,6 +19,9 @@ from game_state import GameState
 from settings import PERK_PICK_LIMIT
 from systems.room_bounds import reset_room_bounds
 from systems.room_system import RoomType
+from systems.xp_budget import stage_room_completion_xp
+from systems.stage_document import playable_nodes
+from systems.object_catalog import definition as object_definition
 
 OPPOSITE_DOOR = {
     "north": "south",
@@ -36,14 +40,6 @@ DOOR_STEP = {
 MOVEMENT_PICKUP_RESPAWN = 12.0
 MOVEMENT_PICKUP_PLAYER_CLEARANCE = 260
 STAGE_PRECOMBAT_GRACE = 1.8
-STAGE_ROOM_REWARD_XP = {
-    1: 220,
-    2: 170,
-    4: 160,
-    5: 150,
-    6: 150,
-    7: 170,
-}
 
 
 @dataclass(frozen=True)
@@ -54,9 +50,10 @@ class StageRoom:
     spawn_plan: tuple = ()
     active_cap: int = 10
     release_threshold: int = 4
-    reward_xp: int = PROTOTYPE_REWARD_XP
+    reward_xp: int = 0
     reward_gold: int = PROTOTYPE_REWARD_GOLD
     boss: bool = False
+    layout: object = DEFAULT_PROTOTYPE_LAYOUT
 
 
 @dataclass
@@ -78,12 +75,38 @@ def _scaled_plan(index, room_type):
     while len(plan) < target_count:
         slot = len(plan)
         item = source[slot % len(source)]
-        enemy_type = item.enemy_type
+        enemy_type = _stage_enemy_type(index, room_type, item.enemy_type, slot)
         if room_type == RoomType.ELITE and len(plan) in (8, 19, 30, 43, 55):
             enemy_type = EnemyType.ELITE
         delay = (slot // 4) * 5.2 + (slot % 4) * 0.45 + 0.2
         plan.append(PrototypeSpawn(delay, item.door_id, enemy_type))
     return tuple(plan)
+
+
+def _stage_enemy_type(index, room_type, base_type, slot):
+    if room_type == RoomType.TREASURE:
+        return base_type
+    if index <= 2:
+        return base_type
+
+    late_cycle = slot % 12
+    if index >= 3 and base_type == EnemyType.CHASER and late_cycle in (2, 7):
+        return EnemyType.CHASER_FAST
+    if index >= 4 and base_type == EnemyType.RANGED and late_cycle in (1, 6):
+        return EnemyType.RANGED_THREE
+    if index >= 5 and base_type in (EnemyType.CHASER, EnemyType.CHASER_FAST) and late_cycle in (3, 9):
+        return EnemyType.HUNTER
+    if index >= 5 and base_type == EnemyType.JUMPER and late_cycle in (0, 8):
+        return EnemyType.JUMPER_FAST
+    if index >= 6 and base_type in (EnemyType.RANGED, EnemyType.RANGED_THREE) and late_cycle in (4, 10):
+        return EnemyType.RANGED_FIVE
+    if index >= 6 and base_type == EnemyType.CHASER_TANK and late_cycle in (5, 11):
+        return EnemyType.BRUTE
+    if index >= 7 and base_type == EnemyType.JUMPER and late_cycle in (2, 6):
+        return EnemyType.JUMPER_HEAVY
+    if index >= 7 and base_type in (EnemyType.RANGED, EnemyType.RANGED_THREE) and late_cycle == 0:
+        return EnemyType.RANGED_RAIN
+    return base_type
 
 
 def _base_stage_rooms():
@@ -98,14 +121,16 @@ def _base_stage_rooms():
     )
     rooms = []
     for index, room_type in enumerate(types, start=1):
+        layout = COMBAT_LAYOUT_VARIANTS[(index - 1) % len(COMBAT_LAYOUT_VARIANTS)]
         if room_type == RoomType.TREASURE:
-            rooms.append(StageRoom(index, room_type, "Treasure", active_cap=0, reward_xp=60, reward_gold=120))
+            reward_xp = stage_room_completion_xp(index, room_type)
+            rooms.append(StageRoom(index, room_type, "Treasure", active_cap=0, reward_xp=reward_xp, reward_gold=120, layout=layout))
         else:
             active_cap = min(15, 9 + index)
             release_threshold = min(active_cap - 2, max(3, active_cap // 2))
-            reward_xp = STAGE_ROOM_REWARD_XP.get(index, PROTOTYPE_REWARD_XP)
-            rooms.append(StageRoom(index, room_type, room_type.name.title(), _scaled_plan(index, room_type), active_cap, release_threshold, reward_xp=reward_xp))
-    rooms.append(StageRoom(8, RoomType.ELITE, "Boss", active_cap=1, reward_xp=320, reward_gold=180, boss=True))
+            reward_xp = stage_room_completion_xp(index, room_type)
+            rooms.append(StageRoom(index, room_type, room_type.name.title(), _scaled_plan(index, room_type), active_cap, release_threshold, reward_xp=reward_xp, layout=layout))
+    rooms.append(StageRoom(8, RoomType.ELITE, "Boss", active_cap=1, reward_xp=stage_room_completion_xp(8, RoomType.ELITE, boss=True), reward_gold=180, boss=True, layout=DEFAULT_PROTOTYPE_LAYOUT))
     return tuple(rooms)
 
 
@@ -144,7 +169,7 @@ def build_stage_map(seed=None, room_count=8):
     for index, pos in enumerate(ordered_positions, start=1):
         source = base_rooms[min(index - 1, len(base_rooms) - 1)]
         if pos == boss_pos:
-            room = replace(source, index=index, room_type=RoomType.ELITE, label="Boss", active_cap=1, reward_xp=320, reward_gold=180, boss=True)
+            room = replace(source, index=index, room_type=RoomType.ELITE, label="Boss", active_cap=1, reward_xp=stage_room_completion_xp(index, RoomType.ELITE, boss=True), reward_gold=180, boss=True)
         elif source.boss:
             room = replace(source, index=index, boss=False, label=source.room_type.name.title())
         else:
@@ -180,7 +205,7 @@ class StageSystem:
     def __init__(self, game):
         self.game = game
         self.stage_number = 1
-        self.nodes = build_stage_map()
+        self.nodes = playable_nodes(build_stage_map)
         self.rooms = tuple(node.room for node in self.nodes)
         self.node_by_pos = {node.grid_pos: node for node in self.nodes}
         self.active = False
@@ -201,7 +226,7 @@ class StageSystem:
         return self.node_by_pos.get(self.current_pos)
 
     def start_stage(self):
-        self.nodes = build_stage_map()
+        self.nodes = playable_nodes(build_stage_map)
         self.rooms = tuple(node.room for node in self.nodes)
         self.node_by_pos = {node.grid_pos: node for node in self.nodes}
         self.active = True
@@ -224,7 +249,7 @@ class StageSystem:
         self.game.room_number = room.index
         self.room_index = room.index - 1
         self.game.prototype_room.enter(stage_room=room, entry_door=self.entry_door, already_cleared=node.cleared)
-        self.game.message = f"Stage {self.stage_number} - Room {room.index}/{len(self.rooms)}: {room.label}"
+        self.game.message = ""
 
     def advance_after_exit(self):
         if not self.active:
@@ -242,7 +267,7 @@ class StageSystem:
         node = self.current_node
         if node is None or not node.cleared:
             return False
-        for door in PROTOTYPE_DOORS:
+        for door in self.current_doors():
             target_pos = node.neighbors.get(door.id)
             if target_pos is None:
                 continue
@@ -265,10 +290,15 @@ class StageSystem:
             self.node_by_pos[target_pos].discovered = True
 
     def door_rect(self, door_id):
-        door = next(item for item in PROTOTYPE_DOORS if item.id == door_id)
+        door = next(item for item in self.current_doors() if item.id == door_id)
         rect = pygame.Rect(0, 0, 94, 94)
         rect.center = (door.x, door.y)
         return rect
+
+    def current_doors(self):
+        room = self.current_room
+        layout = getattr(room, "layout", DEFAULT_PROTOTYPE_LAYOUT) if room else DEFAULT_PROTOTYPE_LAYOUT
+        return layout.doors
 
     def open_doors(self):
         node = self.current_node
@@ -299,9 +329,6 @@ class StageSystem:
         self.game.upgrades.reset()
         self.game.room_completion_xp_awarded.clear()
 
-    def legacy_route_available(self):
-        return True
-
     def spawn_movement_pickups(self):
         self.game.movement_pickups = []
         room = self.current_room
@@ -310,6 +337,19 @@ class StageSystem:
         player_center = pygame.Vector2(self.game.player.rect.center)
         bounds = pygame.Rect(0, 0, PROTOTYPE_ROOM_WIDTH, PROTOTYPE_ROOM_HEIGHT)
         obstacles = getattr(self.game, "room_obstacles", [])
+        layout = getattr(room, "layout", DEFAULT_PROTOTYPE_LAYOUT)
+        for point in getattr(layout, "movement_pickups", ()):
+            rect = pygame.Rect(0, 0, 34, 34)
+            rect.center = (point.x, point.y)
+            if not bounds.contains(rect):
+                continue
+            if any(rect.inflate(22, 22).colliderect(other) for other in obstacles):
+                continue
+            if pygame.Vector2(rect.center).distance_to(player_center) < MOVEMENT_PICKUP_PLAYER_CLEARANCE:
+                continue
+            self._add_movement_pickup(rect, getattr(point, 'kind', 'dash_refresh'))
+        if self.game.movement_pickups:
+            return
         for obstacle in obstacles[:2]:
             rect = pygame.Rect(0, 0, 34, 34)
             candidates = (
@@ -331,12 +371,17 @@ class StageSystem:
                 break
             if chosen is None:
                 continue
-            self.game.movement_pickups.append({
-                "type": "dash_refresh",
-                "rect": chosen,
-                "spawn_rect": chosen.copy(),
-                "duration": 1.8,
-                "alive": True,
-                "respawn_timer": 0.0,
-                "respawn_delay": MOVEMENT_PICKUP_RESPAWN,
-            })
+            self._add_movement_pickup(chosen)
+
+    def _add_movement_pickup(self, rect, kind='dash_refresh'):
+        config = object_definition(kind)
+        self.game.movement_pickups.append({
+            "type": kind,
+            "rect": rect.copy(),
+            "spawn_rect": rect.copy(),
+            "duration": config.get('duration', 1.8),
+            "value": config.get('medium', config.get('duration', 1.8)),
+            "alive": True,
+            "respawn_timer": 0.0,
+            "respawn_delay": config['respawn'],
+        })

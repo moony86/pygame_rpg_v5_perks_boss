@@ -55,6 +55,10 @@ class UpgradeSystem:
             if level >= max_level:
                 return f"{name} is maxed."
 
+        if key == "heal" and player.health >= player.max_health:
+            return "Health is already full."
+        if key.startswith("skill_") and player.active_skill == key[len("skill_"):]:
+            return "This skill is already equipped."
         if not player.spend_gold(cost):
             return f"Need {cost} gold."
 

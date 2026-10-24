@@ -1,4 +1,5 @@
 import pygame
+from config import CONFIG
 
 from settings import (
     AIM_ASSIST_RADIUS,
@@ -12,7 +13,7 @@ def nearest_enemy(player, enemies, max_range=AIM_ASSIST_RANGE):
     best_d = max_range
 
     for enemy in enemies:
-        if not enemy.alive:
+        if not enemy.alive or (getattr(enemy,'encounter',None) and enemy.encounter.airborne):
             continue
 
         d = player.rect.centerx - enemy.rect.centerx
@@ -27,7 +28,7 @@ def nearest_enemy(player, enemies, max_range=AIM_ASSIST_RANGE):
 
 
 def update_player_aim(player, enemies, camera, mouse_pos=None):
-    target = nearest_enemy(player, enemies, AIM_ASSIST_RANGE)
+    target = nearest_enemy(player, enemies, AIM_ASSIST_RANGE) if CONFIG.get("aim_assist", True) else None
     if mouse_pos is None:
         mouse_pos = pygame.mouse.get_pos()
     mouse_world = camera.screen_to_world(mouse_pos)

@@ -4,6 +4,8 @@ import pygame
 from systems.room_system import RoomType
 from systems.asset_loader import load_image
 from systems.room_bounds import current_room_bounds
+from systems.environment_art import draw_cover
+from systems.environment_art import draw_cover
 
 
 _BLOCK_TILE = None
@@ -47,6 +49,10 @@ def draw_room_obstacles(surface, camera, obstacles):
 
     for rect in obstacles:
         sr = camera.apply_rect(rect)
+        if draw_cover(surface, sr):
+            continue
+        if draw_cover(surface, sr):
+            continue
         tile = _BOX_TILE if rect.width >= rect.height else _BLOCK_TILE
         if tile is None:
             pygame.draw.rect(surface, (38, 43, 54), sr, border_radius=5)

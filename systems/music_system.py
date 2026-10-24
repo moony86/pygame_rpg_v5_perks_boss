@@ -11,6 +11,7 @@ MUSIC_TRACKS = {
     "room": "combat.ogg",
     "boss": "boss_01.ogg",
 }
+MUSIC_FALLBACKS = {"boss": "boss.ogg"}
 
 
 class MusicSystem:
@@ -29,20 +30,21 @@ class MusicSystem:
         if filename is None:
             return False
 
-        path = self.music_path / filename
-        if not path.exists():
-            return False
-
-        try:
-            if self.current_key is not None and fade_ms > 0:
-                pygame.mixer.music.fadeout(int(fade_ms))
-            pygame.mixer.music.load(str(path))
-            pygame.mixer.music.set_volume(CONFIG["master_volume"] * CONFIG["music_volume"])
-            pygame.mixer.music.play(loops=-1, fade_ms=max(0, int(fade_ms)))
-            self.current_key = key
-            return True
-        except pygame.error:
-            return False
+        for candidate in (filename, MUSIC_FALLBACKS.get(key)):
+            if candidate is None:
+                continue
+            path = self.music_path / candidate
+            if not path.exists():
+                continue
+            try:
+                pygame.mixer.music.load(str(path))
+                pygame.mixer.music.set_volume(CONFIG["master_volume"] * CONFIG["music_volume"])
+                pygame.mixer.music.play(loops=-1, fade_ms=max(0, int(fade_ms)))
+                self.current_key = key
+                return True
+            except pygame.error:
+                continue
+        return False
 
     def stop_music(self, fade_ms=500):
         if not self.enabled:

@@ -1,8 +1,10 @@
 import pygame
 import math
 from settings import SCREEN_WIDTH, SCREEN_HEIGHT, DARK_GRAY, WHITE, GOLD, GREEN
+from systems.asset_loader import load_image
+from systems.object_catalog import sprite as visual_sprite, definition as visual_definition
 
-from ui.common import draw_text
+from ui.common import draw_text, wrap_text, fitted_text
 
 
 # perk rarity color palette
@@ -22,6 +24,23 @@ BUILD_COLORS = {
 }
 
 
+# Space is reserved independently for art, complete descriptions and synergy.
+CARD_ART_SIZE = 96
+_card_art_cache = {}
+
+
+def get_card_art(key):
+    style = visual_definition('card_style')
+    config = visual_definition('card_'+key)
+    size = tuple(min(128,round(config[field]*style['art_size']/96)) for field in ('width','height'))
+    art = visual_sprite('card_'+key,size,frame=int(pygame.time.get_ticks()/1000*config['fps']))
+    if art is not None:
+        return art
+    if key not in _card_art_cache:
+        _card_art_cache[key] = load_image(f"cards/{key}.png", (CARD_ART_SIZE, CARD_ART_SIZE))
+    return _card_art_cache[key]
+
+
 def _build_badge_text(perk):
     label = perk.get("build_label") or perk.get("build", "Shared/Utility")
     label = "SHARED" if label == "Shared/Utility" else str(label).upper()
@@ -31,17 +50,11 @@ def _build_badge_text(perk):
 
 def draw_perk_select(surface, big_font, font, options, mouse_pos=None, reroll_labels=None, player=None):
     t = pygame.time.get_ticks() / 1000.0
+    style = visual_definition('card_style')
+    palette = {key.upper():tuple(pygame.Color(style[key]))[:3] for key in ('gunslinger','engineer','ninja','vampire','shared')}
 
     # dark vignette bg
     surface.fill((6, 6, 14))
-
-    # animated radial glow behind cards
-    for i, col in enumerate([(20, 50, 120), (60, 20, 100), (80, 60, 10)]):
-        glow = pygame.Surface((400, 300), pygame.SRCALPHA)
-        a    = int(35 + 15 * math.sin(t * 1.2 + i))
-        pygame.draw.ellipse(glow, (*col, a), (0, 0, 400, 300))
-        gx = SCREEN_WIDTH // 4 * (i + 1) - 200
-        surface.blit(glow, (gx, SCREEN_HEIGHT // 2 - 150))
 
     # header
     lv_surf  = big_font.render("LEVEL UP", True, GOLD)
@@ -49,11 +62,11 @@ def draw_perk_select(surface, big_font, font, options, mouse_pos=None, reroll_la
     surface.blit(lv_sh, lv_sh.get_rect(center=(SCREEN_WIDTH // 2 + 2, 90)))
     surface.blit(lv_surf, lv_surf.get_rect(center=(SCREEN_WIDTH // 2, 88)))
 
-    sub = font.render("Choose one perk", True, (160, 160, 180))
+    sub = font.render("Choose one upgrade for this run  |  Click or press 1 / 2 / 3", True, (190, 195, 215))
     surface.blit(sub, sub.get_rect(center=(SCREEN_WIDTH // 2, 136)))
     if player is not None:
         if getattr(player, "starter_choice_active", False):
-            status_text = "Starter choice: first pick sets soft build affinity"
+            status_text = "First upgrade: choose a playstyle. All builds use the Pistol in this demo."
         else:
             status_text = f"Rerolls: {getattr(player, 'reroll_tokens', 0)} token(s) | Gold reroll {getattr(player, 'gold', 0)}g"
         status = font.render(status_text, True, (130, 145, 175))
@@ -69,12 +82,15 @@ def draw_perk_select(surface, big_font, font, options, mouse_pos=None, reroll_la
     if mouse_pos is None:
         mouse_pos = pygame.mouse.get_pos()
 
-    card_w, card_h = 248, 268
+    card_w = style['width']
+    max_lines = max((len(wrap_text(font, perk["desc"], card_w - 88)) for perk in options), default=1)
+    card_h = max(style['height'], style['desc_y'] + max_lines * style['line_height'] + 130)
     gap     = 30
     start_x = SCREEN_WIDTH // 2 - (card_w * 3 + gap * 2) // 2
 
     for i, perk in enumerate(options):
-        col      = PERK_COLORS[i % len(PERK_COLORS)]
+        build_label, hybrid = _build_badge_text(perk)
+        col      = palette.get(build_label, (190, 190, 210))
         x        = start_x + i * (card_w + gap)
         y        = 190
         rect     = pygame.Rect(x, y, card_w, card_h)
@@ -94,7 +110,7 @@ def draw_perk_select(surface, big_font, font, options, mouse_pos=None, reroll_la
         # card body
         card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
         bg_a      = 230 if hovered else 200
-        pygame.draw.rect(card_surf, (14, 16, 28, bg_a),
+        pygame.draw.rect(card_surf, pygame.Color(style['body']),
                          (0, 0, card_w, card_h), border_radius=12)
 
         # top colour band
@@ -110,101 +126,101 @@ def draw_perk_select(surface, big_font, font, options, mouse_pos=None, reroll_la
                          (0, 0, card_w, card_h), brd_w, border_radius=12)
 
         surface.blit(card_surf, (x, draw_y))
+        frame = visual_sprite('card_style',(card_w,card_h))
+        if frame is not None:
+            if perk.get('legendary',False):
+                frame = pygame.transform.grayscale(frame)
+                frame.fill(pygame.Color(style['legendary']),special_flags=pygame.BLEND_RGB_MULT)
+            surface.blit(frame,(x,draw_y))
+            pygame.draw.rect(surface,pygame.Color(style['body']),
+                (x+40,draw_y+40,card_w-80,card_h-80),border_radius=8)
 
         build_label, hybrid = _build_badge_text(perk)
-        badge_col = BUILD_COLORS.get(build_label, (190, 190, 210))
+        badge_col = palette.get(build_label, (190, 190, 210))
         badge_text = build_label + (" +HYBRID" if hybrid else "")
-        badge = font.render(badge_text, True, (8, 10, 18))
-        badge_rect = pygame.Rect(x + 12, draw_y + 14, max(86, badge.get_width() + 16), 24)
+        badge = fitted_text(font, badge_text, (8, 10, 18), card_w - 128)
+        badge_rect = pygame.Rect(x + 44, draw_y + 46, min(card_w-112,max(86, badge.get_width() + 16)), 24)
         pygame.draw.rect(surface, badge_col, badge_rect, border_radius=5)
         pygame.draw.rect(surface, (255, 255, 255), badge_rect, 1, border_radius=5)
         surface.blit(badge, badge.get_rect(center=badge_rect.center))
 
-        # icon placeholder – geometric shape per card
+        # Card art replaces the geometric placeholder when an asset exists.
+        # Keep the original placeholder as a safe fallback for missing cards.
         icon_cx = x + card_w // 2
-        icon_cy = draw_y + 70
+        icon_cy = draw_y + style['art_y']
         icon_r  = 28
-        # pulsing ring
-        pulse_r = icon_r + int(4 * math.sin(t * 3 + i))
-        pygame.draw.circle(surface, (*col, 60), (icon_cx, icon_cy), pulse_r, 2)
-
-        if i == 0:
-            # diamond
-            pts = [(icon_cx, icon_cy - icon_r),
-                   (icon_cx + icon_r, icon_cy),
-                   (icon_cx, icon_cy + icon_r),
-                   (icon_cx - icon_r, icon_cy)]
-            pygame.draw.polygon(surface, col, pts)
-            pygame.draw.polygon(surface, (200, 200, 255), pts, 2)
-        elif i == 1:
-            # hexagon
-            pts = [(icon_cx + int(icon_r * math.cos(math.pi / 3 * k - math.pi / 6)),
-                    icon_cy + int(icon_r * math.sin(math.pi / 3 * k - math.pi / 6)))
-                   for k in range(6)]
-            pygame.draw.polygon(surface, col, pts)
-            pygame.draw.polygon(surface, (220, 180, 255), pts, 2)
+        card_art = get_card_art(perk["key"])
+        if card_art is not None:
+            art_rect = card_art.get_rect(center=(icon_cx, icon_cy))
+            surface.blit(card_art, art_rect)
         else:
-            # star
-            pts = []
-            for k in range(5):
-                outer_a = math.pi / 2 + 2 * math.pi / 5 * k
-                inner_a = outer_a + math.pi / 5
-                pts.append((icon_cx + int(icon_r * math.cos(outer_a)),
-                             icon_cy - int(icon_r * math.sin(outer_a))))
-                pts.append((icon_cx + int((icon_r * 0.45) * math.cos(inner_a)),
-                             icon_cy - int((icon_r * 0.45) * math.sin(inner_a))))
-            pygame.draw.polygon(surface, col, pts)
-            pygame.draw.polygon(surface, (255, 220, 100), pts, 2)
+            # pulsing ring
+            pulse_r = icon_r + int(4 * math.sin(t * 3 + i))
+            pygame.draw.circle(surface, (*col, 60), (icon_cx, icon_cy), pulse_r, 2)
+
+            if i == 0:
+                # diamond
+                pts = [(icon_cx, icon_cy - icon_r),
+                       (icon_cx + icon_r, icon_cy),
+                       (icon_cx, icon_cy + icon_r),
+                       (icon_cx - icon_r, icon_cy)]
+                pygame.draw.polygon(surface, col, pts)
+                pygame.draw.polygon(surface, (200, 200, 255), pts, 2)
+            elif i == 1:
+                # hexagon
+                pts = [(icon_cx + int(icon_r * math.cos(math.pi / 3 * k - math.pi / 6)),
+                        icon_cy + int(icon_r * math.sin(math.pi / 3 * k - math.pi / 6)))
+                       for k in range(6)]
+                pygame.draw.polygon(surface, col, pts)
+                pygame.draw.polygon(surface, (220, 180, 255), pts, 2)
+            else:
+                # star
+                pts = []
+                for k in range(5):
+                    outer_a = math.pi / 2 + 2 * math.pi / 5 * k
+                    inner_a = outer_a + math.pi / 5
+                    pts.append((icon_cx + int(icon_r * math.cos(outer_a)),
+                                 icon_cy - int(icon_r * math.sin(outer_a))))
+                    pts.append((icon_cx + int((icon_r * 0.45) * math.cos(inner_a)),
+                                 icon_cy - int((icon_r * 0.45) * math.sin(inner_a))))
+                pygame.draw.polygon(surface, col, pts)
+                pygame.draw.polygon(surface, (255, 220, 100), pts, 2)
 
         # perk name
-        name_surf = font.render(perk["name"], True, WHITE)
+        name_surf = fitted_text(font, perk["name"], pygame.Color(style['text']), card_w - 88)
         surface.blit(name_surf,
-                     name_surf.get_rect(center=(x + card_w // 2, draw_y + 128)))
+                     name_surf.get_rect(center=(x + card_w // 2, draw_y + style['title_y'])))
 
         # perk description – wrap if long
         desc = perk["desc"]
-        words      = desc.split()
-        lines      = []
-        cur        = ""
-        max_w      = card_w - 24
-        for word in words:
-            test = (cur + " " + word).strip()
-            if font.size(test)[0] <= max_w:
-                cur = test
-            else:
-                if cur:
-                    lines.append(cur)
-                cur = word
-        if cur:
-            lines.append(cur)
-
-        desc_col = (160, 170, 200)
-        for li, line in enumerate(lines[:3]):
+        desc_col = pygame.Color(style['description'])
+        lines = wrap_text(font, desc, card_w - 88)
+        for li, line in enumerate(lines):
             ls = font.render(line, True, desc_col)
             surface.blit(ls,
-                         ls.get_rect(center=(x + card_w // 2, draw_y + 160 + li * 22)))
+                         ls.get_rect(center=(x + card_w // 2, draw_y + style['desc_y'] + li * style['line_height'])))
 
         synergy = perk.get("synergy", "")
         limit_y = draw_y + card_h - 44
         if synergy:
-            badge = font.render(synergy, True, (255, 220, 90))
-            badge_rect = badge.get_rect(center=(x + card_w // 2, draw_y + card_h - 68))
+            badge = fitted_text(font, synergy, (255, 220, 90), card_w - 88)
+            badge_rect = badge.get_rect(center=(x + card_w // 2, draw_y + card_h - 90))
             badge_bg = pygame.Surface((badge_rect.width + 14, badge_rect.height + 6), pygame.SRCALPHA)
             badge_bg.fill((70, 55, 10, 210))
             badge_bg_rect = badge_bg.get_rect(center=badge_rect.center)
             surface.blit(badge_bg, badge_bg_rect)
             surface.blit(badge, badge_rect)
-            limit_y = draw_y + card_h - 42
+            limit_y = draw_y + card_h - 64
 
+        limit_y = draw_y + card_h - 64
         limit_text = f"{perk.get('taken', 0)}/{perk.get('limit', 3)} taken"
         limit_surf = font.render(limit_text, True, (190, 190, 210))
         surface.blit(limit_surf, limit_surf.get_rect(center=(x + card_w // 2, limit_y)))
 
         # bottom hint
-        hint_col  = col if hovered else (80, 80, 80)
-        hint_text = "▶  Click to choose" if hovered else "hover to preview"
-        hs        = font.render(hint_text, True, hint_col)
-        surface.blit(hs, hs.get_rect(center=(x + card_w // 2, draw_y + card_h - 18)))
+        hint_col  = col if hovered else (170, 185, 205)
+        key_label = font.render(str(i+1),True,hint_col)
+        surface.blit(key_label,key_label.get_rect(center=(x+card_w-52,draw_y+58)))
 
         label = (reroll_labels or ["NO REROLL"] * len(options))[i]
         button_w, button_h = 190, 28

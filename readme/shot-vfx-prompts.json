@@ -1,0 +1,26 @@
+[
+  {
+    "key": "charge",
+    "prompt": "Use case: stylized-concept. Asset type: standalone BlueCube dark dungeon VFX sprite. One isolated blue-violet arcane charge orb with a thin broken circular rune around its bright white core, centered, no tail. Crisp chunky 32-bit pixel art, readable at 32-64 game pixels, genuine transparent background, no text, no panel, no borders, no floor, no watermark. Single effect only.",
+    "tool": "built-in image generation",
+    "path": "assets/visuals/shot_charge.png"
+  },
+  {
+    "key": "trail",
+    "prompt": "Use case: stylized-concept. Asset type: standalone BlueCube dark dungeon VFX sprite. One isolated horizontal magic comet tail ONLY, bright cyan white head at far RIGHT, trailing wisps fading to transparent to the LEFT. Wide slender silhouette, no stars outside tail. Crisp chunky 32-bit pixel art, readable at 32-64 game pixels, genuine transparent background, no text, no panel, no borders, no floor, no watermark. Single effect only.",
+    "tool": "built-in image generation",
+    "path": "assets/visuals/shot_trail.png"
+  },
+  {
+    "key": "sparks",
+    "prompt": "Use case: stylized-concept. Asset type: standalone BlueCube dark dungeon VFX sprite. One isolated small radial impact burst of angular gold-white metal sparks with a few dark stone chips, loose clear center, not an explosion cloud. Crisp chunky 32-bit pixel art, readable at 32-64 game pixels, genuine transparent background, no text, no panel, no borders, no floor, no watermark. Single effect only.",
+    "tool": "built-in image generation",
+    "path": "assets/visuals/shot_sparks.png"
+  },
+  {
+    "key": "flame",
+    "prompt": "Use case: stylized-concept. Asset type: standalone BlueCube dark dungeon VFX sprite. One isolated small cluster of orange-gold flames curling upward around an EMPTY transparent center to overlay a hit enemy, no character or ground, no surrounding circle. Crisp chunky 32-bit pixel art, readable at 32-64 game pixels, genuine transparent background, no text, no panel, no borders, no floor, no watermark. Single effect only.",
+    "tool": "built-in image generation",
+    "path": "assets/visuals/shot_flame.png"
+  }
+]

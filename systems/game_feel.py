@@ -2,6 +2,7 @@ import math
 import random
 
 import pygame
+from config import CONFIG
 
 
 class GameFeelSystem:
@@ -65,6 +66,10 @@ class GameFeelSystem:
         self.hit_stop_timer = max(self.hit_stop_timer, duration)
 
     def shake(self, duration, strength):
+        if not CONFIG.get("screen_shake", True):
+            self.shake_timer = 0.0
+            self.shake_offset.update(0, 0)
+            return
         remaining_strength = self.shake_strength * (self.shake_timer / max(0.001, self.shake_duration)) if self.shake_timer > 0 else 0.0
         if strength >= remaining_strength:
             self.shake_duration = max(0.001, duration)

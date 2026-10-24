@@ -1,0 +1,13 @@
+{
+  "mode": "built-in image_gen",
+  "assets": [
+    {
+      "path": "assets/visuals/boss_healing_eye_v1.png",
+      "prompt": "Use case: stylized-concept. Asset type: transparent pixel-art game sprite. A single ominous floating HEALING EYE sentinel for a dark sci-fi dungeon roguelike: one large violet iris and bright mint-green pupil, horizontal eyelid of dark gunmetal angular plates, small green crystal prongs, readable as an eye not a robot face. Top-down three-quarter game view, chunky crisp pixel clusters and strong silhouette readable at 64px. No ground, no shadow, no text, no card, no border, one centered isolated eye. Genuine transparent alpha background."
+    },
+    {
+      "path": "assets/visuals/hud_health_cell_v1.png",
+      "prompt": "Use case: stylized-concept. Asset type: single transparent HUD health-cell icon for a pixel-art game called Blue Cube. A small beveled isometric energy CUBE, dark navy steel outline with cool cyan edge highlights and a LARGE glowing ruby RED square core on its front face, health meaning unmistakable. Clean chunky crisp pixel art designed to read at 28x28 pixels, compact square silhouette, restrained details. Single isolated centered object, genuine transparent alpha. No face, no eyes, no ground, no shadow, no text, no UI panel, no surrounding sparks."
+    }
+  ]
+}

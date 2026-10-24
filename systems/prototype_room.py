@@ -1,9 +1,11 @@
 import pygame
+from systems.projectile_pool import clear_world_projectiles
+from systems.object_catalog import draw_object
 
 from definitions.prototype_room_definitions import (
+    DEFAULT_PROTOTYPE_LAYOUT,
     PROTOTYPE_ACTIVE_ENEMY_CAP,
     PROTOTYPE_DOORS,
-    PROTOTYPE_OBSTACLES,
     PROTOTYPE_REWARD_GOLD,
     PROTOTYPE_REWARD_XP,
     PROTOTYPE_ROOM_HEIGHT,
@@ -16,6 +18,7 @@ from entities.enemy import EnemyType
 from game_state import GameState
 from systems.room_bounds import RoomBounds, reset_room_bounds, set_room_bounds
 from systems.room_system import RoomType
+from systems.xp_budget import award_stage_room_completion_xp
 
 STAGE_PRECOMBAT_GRACE = 1.8
 SPAWN_ACCELERATION_LOOKAHEAD = 3.0
@@ -31,7 +34,8 @@ class PrototypeCombatRoom:
         self.pending = []
         self.cleared = False
         self.total_spawns = len(PROTOTYPE_SPAWN_PLAN)
-        self.doors = prototype_door_map()
+        self.layout = DEFAULT_PROTOTYPE_LAYOUT
+        self.doors = prototype_door_map(self.layout)
         self.stage_room = None
         self.spawn_plan = PROTOTYPE_SPAWN_PLAN
         self.active_cap = PROTOTYPE_ACTIVE_ENEMY_CAP
@@ -48,6 +52,8 @@ class PrototypeCombatRoom:
         self.release_threshold = getattr(stage_room, "release_threshold", 4) if stage_room else 4
         self.reward_xp = getattr(stage_room, "reward_xp", PROTOTYPE_REWARD_XP) if stage_room else PROTOTYPE_REWARD_XP
         self.reward_gold = getattr(stage_room, "reward_gold", PROTOTYPE_REWARD_GOLD) if stage_room else PROTOTYPE_REWARD_GOLD
+        self.layout = getattr(stage_room, "layout", DEFAULT_PROTOTYPE_LAYOUT) if stage_room else DEFAULT_PROTOTYPE_LAYOUT
+        self.doors = prototype_door_map(self.layout)
         self.total_spawns = len(self.spawn_plan)
         game.state = GameState.ROOM
         game.rooms.room_type = getattr(stage_room, "room_type", RoomType.COMBAT) if stage_room else RoomType.COMBAT
@@ -58,13 +64,14 @@ class PrototypeCombatRoom:
         game.room_kills = 0
         game.room_exit_open = False
         game.collision.clear()
-        game.room_obstacles = [obstacle.rect() for obstacle in PROTOTYPE_OBSTACLES]
+        game.room_obstacles = [obstacle.rect() for obstacle in self.layout.obstacles]
         for obstacle in game.room_obstacles:
             game.collision.add_rect(obstacle)
-        game.horde.clear(game)
+        if getattr(game, "horde", None) is not None:
+            game.horde.clear(game)
         game.enemy_pool.release_many(game.enemies)
         game.enemies.clear()
-        game.projectiles.clear()
+        clear_world_projectiles(game)
         game.enemy_bullets.clear()
         game.loot.reset()
         game.effects.reset()
@@ -72,6 +79,7 @@ class PrototypeCombatRoom:
         game.player.cancel_tea()
         game.player.rect.center = self.bounds.center
         game.player.reset_engineer_scene_state()
+        game.player.reset_ninja_scene_state()
         game.player.reset_vampire_scene_state()
         game.camera.reset(game.player.rect)
         game.dialogue.close()
@@ -94,7 +102,7 @@ class PrototypeCombatRoom:
         self._place_player_for_entry(entry_door)
         game.message = "Prototype small combat room: door spawns active." if stage_room is None else f"Stage room: {stage_room.label}"
         game.show_wave_notice("PROTOTYPE ROOM" if stage_room is None else "GET READY")
-        game.events.emit("state_room")
+        game.events.emit("state_boss" if stage_room and stage_room.boss else "state_room")
 
     def exit_to_hub(self):
         self.active = False
@@ -109,6 +117,8 @@ class PrototypeCombatRoom:
         game = self.game
         self.elapsed += dt
         game.rooms.update(dt)
+        if self.elapsed < 0:
+            return
 
         active_count = sum(1 for enemy in game.enemies if enemy.alive)
         accelerated = self.stage_room is not None and active_count <= self.release_threshold
@@ -163,8 +173,13 @@ class PrototypeCombatRoom:
         else:
             game.room_exit_open = True
             game.room_exit_rect.center = (self.bounds.centerx, self.bounds.centery - 180)
-        game.loot.spawn_xp((self.bounds.centerx - 28, self.bounds.centery - 120), self.reward_xp)
+        xp_position = (self.bounds.centerx - 28, self.bounds.centery - 120)
+        if self.stage_room is not None:
+            award_stage_room_completion_xp(game, self.stage_room, xp_position)
+        else:
+            game.loot.spawn_xp(xp_position, self.reward_xp)
         game.loot.spawn_gold((self.bounds.centerx + 28, self.bounds.centery - 120), self.reward_gold)
+        game.loot.force_collect_remaining()
         game.events.emit("room_cleared")
         game.audio.play("portal_open")
         game.feel.room_clear()
@@ -193,9 +208,15 @@ class PrototypeCombatRoom:
             elif target.discovered:
                 color = (255, 210, 90) if unlocked else (95, 85, 55)
             pygame.draw.rect(surface, color, screen_rect, 3, border_radius=10)
-            label = "E" if unlocked else "LOCK"
-            text = font.render(label, True, color)
-            surface.blit(text, text.get_rect(center=screen_rect.center))
+            draw_object(surface, 'portal', screen_rect.center, pygame.time.get_ticks()/1000,
+                        active=unlocked, size=(84, 100))
+            if unlocked:
+                label = "Cleared" if target.cleared else target.room.label
+                text = font.render(f"[E] {label}", True, color)
+                label_rect = text.get_rect(center=screen_rect.center)
+                label_rect.clamp_ip(surface.get_rect().inflate(-24, -24))
+                pygame.draw.rect(surface, (8, 12, 22), label_rect.inflate(12, 8), border_radius=4)
+                surface.blit(text, label_rect)
 
     def _place_player_for_entry(self, entry_door):
         if entry_door not in self.doors:
@@ -214,7 +235,7 @@ class PrototypeCombatRoom:
     def draw_telegraphs(self, surface, camera, font):
         if not self.active:
             return
-        for door in PROTOTYPE_DOORS:
+        for door in self.layout.doors:
             pos = camera.apply_pos(pygame.Vector2(door.x, door.y))
             pygame.draw.circle(surface, (40, 90, 130), (round(pos.x), round(pos.y)), 24, 2)
         for entry in self.pending:

@@ -7,7 +7,7 @@ PANEL_W = 520
 PANEL_H = 760
 PADDING = 14
 ROW_H = 18
-CATEGORIES = ["Overview", "Gameplay", "Perks", "Enemies", "Waves", "Rooms", "Assets"]
+CATEGORIES = ["Overview", "Gameplay", "Builds", "Tuning", "Waves", "Assets", "Audio", "Benchmark", "Logs"]
 
 
 class DevPanel:
@@ -90,7 +90,7 @@ class DevPanel:
 
         if key == pygame.K_ESCAPE:
             self.active = False
-        elif pygame.K_1 <= key <= pygame.K_7:
+        elif pygame.K_1 <= key <= pygame.K_9:
             self._set_category(CATEGORIES[key - pygame.K_1])
         elif key == pygame.K_F4:
             self.tools.open_room_exit()
@@ -107,7 +107,7 @@ class DevPanel:
         elif key == pygame.K_f:
             self.tools.focus_selected()
         elif key == pygame.K_SLASH:
-            if self.active_category == "Perks":
+            if self.active_category == "Builds":
                 self.perk_search_active = True
                 self.perk_search_text = ""
                 self.tools.set_perk_search("")
@@ -115,14 +115,28 @@ class DevPanel:
                 self.search_active = True
                 self.search_text = ""
                 self.tools.search("")
-        elif self.active_category == "Perks" and key in (pygame.K_LEFT, pygame.K_a):
+        elif self.active_category == "Builds" and key in (pygame.K_LEFT, pygame.K_a):
             self.tools.select_previous_perk()
-        elif self.active_category == "Perks" and key in (pygame.K_RIGHT, pygame.K_d):
+        elif self.active_category == "Builds" and key in (pygame.K_RIGHT, pygame.K_d):
             self.tools.select_next_perk()
-        elif self.active_category == "Perks" and key == pygame.K_TAB:
+        elif self.active_category == "Builds" and key == pygame.K_TAB:
             self.tools.cycle_perk_build_filter()
-        elif self.active_category == "Perks" and key in (pygame.K_RETURN, pygame.K_g):
+        elif self.active_category == "Builds" and key in (pygame.K_RETURN, pygame.K_g):
             self.tools.grant_selected_perk_next_pick()
+        elif self.active_category == "Tuning" and key in (pygame.K_UP, pygame.K_w):
+            self.tools.workspace.select_previous_tuning()
+        elif self.active_category == "Tuning" and key in (pygame.K_DOWN, pygame.K_s):
+            self.tools.workspace.select_next_tuning()
+        elif self.active_category == "Tuning" and key in (pygame.K_LEFT, pygame.K_a):
+            self.tools.workspace.edit_selected_tuning(-1, bool(pygame.key.get_mods() & pygame.KMOD_SHIFT))
+        elif self.active_category == "Tuning" and key in (pygame.K_RIGHT, pygame.K_d):
+            self.tools.workspace.edit_selected_tuning(1, bool(pygame.key.get_mods() & pygame.KMOD_SHIFT))
+        elif self.active_category == "Tuning" and key == pygame.K_BACKSPACE:
+            self.tools.workspace.reset_selected_tuning()
+        elif self.active_category == "Audio" and key in (pygame.K_UP, pygame.K_DOWN):
+            self.tools.workspace.select_next_audio()
+        elif self.active_category == "Audio" and key in (pygame.K_RETURN, pygame.K_SPACE):
+            self.tools.workspace.play_selected_audio()
         else:
             return True
         return True
@@ -158,7 +172,7 @@ class DevPanel:
         if category not in CATEGORIES:
             return
         self.active_category = category
-        if category != "Perks":
+        if category != "Builds":
             self.perk_search_active = False
         self.tools.message = f"dev category: {category}"
 
@@ -242,7 +256,7 @@ class DevPanel:
             ])
             buttons([
                 ("Hub", self.tools.enter_hub),
-                ("Room", self.tools.enter_normal_room),
+                ("Legacy 10R", self.tools.enter_normal_room),
                 ("Boss", self.tools.enter_boss_room),
             ])
             buttons([
@@ -250,7 +264,7 @@ class DevPanel:
                 ("-", lambda: None),
                 ("-", lambda: None),
             ])
-        elif self.active_category == "Perks":
+        elif self.active_category == "Builds":
             buttons([
                 ("Prev Perk", self.tools.select_previous_perk),
                 ("Next Perk", self.tools.select_next_perk),
@@ -260,6 +274,65 @@ class DevPanel:
             ])
             buttons([
                 ("Grant Next Natural Pick", self.tools.grant_selected_perk_next_pick),
+            ])
+            buttons([
+                ("Full Engineer", lambda: self.tools.workspace.grant_build("Engineer", full=True)),
+                ("Full Vampire", lambda: self.tools.workspace.grant_build("Vampire", full=True)),
+            ])
+            buttons([
+                ("Full Ninja", lambda: self.tools.workspace.grant_build("Ninja", full=True)),
+                ("Full Gunslinger", lambda: self.tools.workspace.grant_build("Gunslinger", full=True)),
+            ])
+            buttons([
+                ("Starter Eng", lambda: self.tools.workspace.grant_build("Engineer", full=False)),
+                ("Starter Vamp", lambda: self.tools.workspace.grant_build("Vampire", full=False)),
+            ])
+            buttons([
+                ("Starter Ninja", lambda: self.tools.workspace.grant_build("Ninja", full=False)),
+                ("Starter Gun", lambda: self.tools.workspace.grant_build("Gunslinger", full=False)),
+            ])
+            buttons([
+                ("Reset Build+Shop", self.tools.workspace.clear_perk_state),
+                ("Pick+Gold", self.tools.workspace.give_level_pending_gold),
+            ])
+        elif self.active_category == "Tuning":
+            buttons([
+                ("Prev", self.tools.workspace.select_previous_tuning),
+                ("Next", self.tools.workspace.select_next_tuning),
+                ("Reset", self.tools.workspace.reset_selected_tuning),
+            ])
+            buttons([
+                ("- Step", lambda: self.tools.workspace.edit_selected_tuning(-1)),
+                ("+ Step", lambda: self.tools.workspace.edit_selected_tuning(1)),
+                ("+ Big", lambda: self.tools.workspace.edit_selected_tuning(1, True)),
+            ])
+            buttons([
+                ("Reload", self.tools.workspace.reload_tuning),
+                ("Save Snapshot", self.tools.workspace.save_snapshot),
+                ("Preview Load", self.tools.workspace.preview_snapshot),
+            ])
+        elif self.active_category == "Benchmark":
+            buttons([
+                ("Horde 100", lambda: self.tools.workspace.spawn_benchmark_horde(100)),
+                ("Horde 200", lambda: self.tools.workspace.spawn_benchmark_horde(200)),
+                ("Horde 300", lambda: self.tools.workspace.spawn_benchmark_horde(300)),
+            ])
+            buttons([
+                ("Horde 500", lambda: self.tools.workspace.spawn_benchmark_horde(500)),
+                ("Clear Horde", self.tools.clear_horde_test),
+                ("Sample", self.tools.workspace.run_short_benchmark_sample),
+            ])
+        elif self.active_category == "Audio":
+            buttons([
+                ("Next Audio", self.tools.workspace.select_next_audio),
+                ("Play", self.tools.workspace.play_selected_audio),
+                ("Stop", self.tools.workspace.stop_audio),
+            ])
+        elif self.active_category == "Logs":
+            buttons([
+                ("Clear Event", self.tools.clear_log),
+                ("Pause Event", self.tools.toggle_log_pause),
+                ("Save Snapshot", self.tools.workspace.save_snapshot),
             ])
         elif self.active_category == "Enemies":
             buttons([
@@ -280,6 +353,16 @@ class DevPanel:
                 ("Wave Designer", self.wave_designer.toggle),
                 ("Export Waves", self.wave_designer.export),
                 ("Wave Debug", self.tools.toggle_wave_debug),
+            ])
+            buttons([
+                ("Restart R1", self.tools.workspace.restart_room_one),
+                ("Spawn Group", self.tools.workspace.spawn_selected_group_now),
+                ("Skip Group", self.tools.workspace.skip_group),
+            ])
+            buttons([
+                ("Pause/Resume", self.tools.workspace.toggle_wave_pause),
+                ("Clear Enemies", self.tools.workspace.clear_enemies),
+                ("Export R1", self.tools.workspace.export_room1_group_snapshot),
             ])
         elif self.active_category == "Rooms" and getattr(self.tools, "authoring", None) is not None:
             buttons([
@@ -331,7 +414,7 @@ class DevPanel:
             self._draw_button(surface, item)
 
         self._draw_text(surface, self.tools.message, self.rect.x + PADDING, self.rect.bottom - 28, (120, 245, 180), self.small_font)
-        if self.active_category in ("Overview", "Gameplay"):
+        if self.active_category in ("Overview", "Gameplay", "Logs"):
             self._draw_inspector(surface)
             self._draw_event_log(surface)
         if self.active_category == "Enemies":
@@ -368,21 +451,15 @@ class DevPanel:
         y = self.rect.y + 104
         self._draw_text(surface, self.active_category, self.rect.x + PADDING, y, (255, 235, 120), self.small_font)
         y += 24
-        if self.active_category == "Perks":
+        if self.active_category == "Builds":
             self._draw_perks_page(surface, y)
             return
-        if self.active_category == "Enemies":
-            for line in self.tools.enemy_lab_lines()[:12]:
-                self._draw_text(surface, line[:66], self.rect.x + PADDING, y, (230, 235, 245), self.small_font)
-                y += ROW_H
-            return
-        if self.active_category == "Waves":
-            wave_info = self.tools._wave_info()
-            lines = [
-                f"Wave state: {wave_info['state']}",
-                f"Wave index: {wave_info['index']} / {wave_info['total']}",
-                f"Wave left: {wave_info['left']} active_limit: {wave_info['active_limit']}",
-                f"All waves spawned: {wave_info['all_spawned']}",
+        if self.active_category == "Tuning":
+            lines = self.tools.workspace.tuning_lines()
+        elif self.active_category == "Enemies":
+            lines = self.tools.enemy_lab_lines()
+        elif self.active_category == "Waves":
+            lines = self.tools.workspace.wave_lines() + [
                 f"Designer visible: {getattr(self.wave_designer, 'visible', False)}",
             ]
         elif self.active_category == "Rooms":
@@ -395,11 +472,22 @@ class DevPanel:
             ]
         elif self.active_category == "Assets":
             pipeline = getattr(self.asset_browser, "pipeline", None)
-            lines = [
+            lines = self.tools.workspace.asset_lines()[:10] + [
                 f"Asset browser visible: {getattr(self.asset_browser, 'visible', False)}",
                 f"Assets loaded: {len(getattr(pipeline, 'assets', [])) if pipeline else '-'}",
                 f"Filter: {getattr(pipeline, 'filter_type', '-') if pipeline else '-'}",
                 f"Message: {getattr(pipeline, 'message', '-') if pipeline else '-'}",
+            ]
+        elif self.active_category == "Audio":
+            lines = self.tools.workspace.audio_lines()
+        elif self.active_category == "Benchmark":
+            lines = self.tools.workspace.benchmark_lines()
+        elif self.active_category == "Logs":
+            lines = [
+                f"Workspace logs bounded: {len(self.tools.workspace.logs)}/80",
+                f"Last snapshot: {self.tools.workspace.last_snapshot_path or '-'}",
+                "Recent workspace diagnostics:",
+                *self.tools.workspace.logs[-14:],
             ]
         else:
             lines = self.tools.runtime_info()
