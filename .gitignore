@@ -15,3 +15,12 @@ env/
 # Editor settings
 .vscode/
 .idea/
+
+# Generated Windows distributions and intermediate build files are not source.
+dist_nuitka_demo/
+dist/
+build/
+installer_output/
+*.build/
+*.dist/
+*.onefile-build/
