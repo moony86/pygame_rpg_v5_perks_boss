@@ -23,6 +23,29 @@ from ui.front_end import draw_menu
 
 
 class Checks(unittest.TestCase):
+    def test_window_identity_and_left_facing_menu_pistol(self):
+        game = Game()
+        self.assertEqual(pygame.display.get_caption()[0], 'Blue Cube — Demo')
+        self.assertIsNotNone(game.window_icon)
+        from ui.front_end import draw_scene
+        from systems.object_catalog import sprite
+        surface = pygame.Surface((1920, 1080), pygame.SRCALPHA)
+        with patch('ui.front_end.sprite', side_effect=lambda key, **kwargs:
+                   sprite(key, **kwargs) if key == 'pistol' else None):
+            draw_scene(surface, 0)
+        expected = pygame.transform.flip(sprite('pistol', size=(94, 70)), True, False)
+        rect = expected.get_rect(center=(1225, 710))
+        composited = pygame.Surface(expected.get_size(), pygame.SRCALPHA)
+        composited.blit(expected, (0, 0))
+        self.assertEqual(pygame.image.tobytes(surface.subsurface(rect), 'RGBA'),
+                         pygame.image.tobytes(composited, 'RGBA'))
+        output = ROOT / 'debug_screenshots' / 'menu-identity'
+        output.mkdir(parents=True, exist_ok=True)
+        for size in ((1920, 1080), (1440, 900)):
+            draw_menu(game.screen, game)
+            pygame.image.save(pygame.transform.smoothscale(game.screen, size),
+                              str(output / f'menu-{size[0]}x{size[1]}.png'))
+
     def setUp(self):
         self.saved=config.CONFIG.copy()
         self.temp=tempfile.TemporaryDirectory(dir=ROOT/'debug_screenshots')

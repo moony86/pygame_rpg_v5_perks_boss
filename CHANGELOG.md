@@ -55,3 +55,9 @@ Branch: `codex/bluecube-demo-overhaul`. Base: `c44930c` (previous main). No hist
 - Healer shop still replaces Dash with Blast/Surge/Ghost, potentially conflicting with Ninja. Surge: five seconds, ×2 damage and ×1.45 fire-rate tuning. Not silently removed.
 - No active Hyper fifth starter was found in inspected live source; HYBRID is shared-card metadata. Historical intent remains uncertain.
 - Still require human runs for each build, native Windows frame-time checks, clean-machine packaging and asset-license review before public release.
+# Window identity and menu pose
+
+- Corrected the menu pistol to aim left, away from the hero.
+- Replaced the obsolete v0.5 window title with Blue Cube — Demo.
+- Set the native window icon and regenerated the multi-resolution EXE icon from existing blue hero art.
+

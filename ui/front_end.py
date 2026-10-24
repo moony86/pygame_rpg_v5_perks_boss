@@ -77,6 +77,8 @@ def draw_scene(surface, time):
         surface.blit(hero,hero.get_rect(center=(1310,690+round(3*math.sin(time*2)))))
     gun = sprite('pistol',size=(94,70))
     if gun:
+        # This menu pose aims left; the authored pistol points right.
+        gun = pygame.transform.flip(gun, True, False)
         surface.blit(gun,gun.get_rect(center=(1225,710)))
 
 

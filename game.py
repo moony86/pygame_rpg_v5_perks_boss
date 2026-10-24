@@ -83,12 +83,16 @@ class Game:
     def __init__(self):
         pygame.init()
         pygame.mouse.set_visible(False)
-        pygame.display.set_caption("Blue Cube v0.5")
+        pygame.display.set_caption("Blue Cube — Demo")
         self.window = pygame.display.set_mode(
             (SCREEN_WIDTH, SCREEN_HEIGHT),
             pygame.RESIZABLE
         )
         self.screen = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
+        from systems.object_catalog import sprite
+        self.window_icon = sprite('hero', size=(64, 64))
+        if self.window_icon is not None:
+            pygame.display.set_icon(self.window_icon)
         self.viewport_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
         self.render_scale = 1.0
         self.configure_viewport(self.window.get_size())
@@ -97,7 +101,7 @@ class Game:
         self.font = pygame.font.SysFont("Arial", 22)
         self.big_font = pygame.font.SysFont("Arial", 48)
 
-        self.menu_title_surf = self.big_font.render("BLUE CUBE v0.5", True, (255, 255, 255))
+        self.menu_title_surf = self.big_font.render("BLUE CUBE", True, (255, 255, 255))
         self.menu_hint_surf = self.font.render("Click on an option to select", True, (255, 255, 255))
 
         self.rect_new_run = pygame.Rect(0, 0, 200, 50)
