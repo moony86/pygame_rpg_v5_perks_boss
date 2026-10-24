@@ -54,6 +54,10 @@ def draw_world_background(screen, camera, hub=False, room_type=None, profiler=No
         screen.fill((8, 9, 14))
     bounds = current_room_bounds()
     world_rect = bounds.rect
+    if hub:
+        from systems.hub_presentation import draw_background
+        if draw_background(screen, camera, world_rect):
+            return
     if not hub and draw_environment(screen, camera, world_rect):
         return
 

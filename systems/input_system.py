@@ -44,6 +44,11 @@ class InputSystem:
                 handle_menu_events(game, event)
                 continue
 
+            if game.state == GameState.HUB and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                from ui.hub import handle_click
+                handle_click(game, event)
+                continue
+
             if game.state in (GameState.ROOM, GameState.BOSS):
                 if event.type in (pygame.KEYDOWN, pygame.KEYUP):
                     if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:

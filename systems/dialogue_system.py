@@ -46,8 +46,8 @@ class DialogueSystem:
             width,
             DIALOGUE_HEIGHT,
         )
-        pygame.draw.rect(surface, BLACK, box_rect, border_radius=8)
-        pygame.draw.rect(surface, WHITE, box_rect, 2, border_radius=8)
+        pygame.draw.rect(surface, (11,20,30), box_rect, border_radius=10)
+        pygame.draw.line(surface, (81,177,197), box_rect.topleft, box_rect.topright, 2)
 
         full_text = f"{self.current_speaker}: {self.current_text}"
         self._draw_wrapped_text(surface, full_text, box_rect.x + 18, box_rect.y + 16, box_rect.width - 36)

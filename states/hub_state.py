@@ -38,12 +38,8 @@ def handle_hub_events (game, event):
         npc = nearest_npc(game.player, game.npcs)
 
         if npc and npc.role in ("blacksmith", "healer"):
-            index = int(event.unicode) - 1
-            gold_before = game.player.gold
-            game.message = game.upgrades.buy(game.player, npc.role, index)
-            game.dialogue.show(npc.name, game.message)
-            if game.player.gold < gold_before:
-                game.events.emit("npc_purchase")
+            from ui.hub import buy
+            buy(game, npc, event.key - pygame.K_1)
 
     elif event.key == pygame.K_t:
         if getattr(game.player, "tea_state", None) == "holding":

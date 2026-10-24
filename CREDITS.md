@@ -1,5 +1,17 @@
 # Asset provenance — additions in Level Studio
 
+## Sanctuary / hub additions (2026-10-24)
+
+`assets/hub/sanctuary_v1.png`, `blacksmith_v1.png`, `healer_v1.png`,
+`seer_v1.png`, and `tea_vendor_v1.png` were generated with built-in OpenAI
+ImageGen under developer direction. Original PNGs, including transparency and
+provenance metadata, are retained without offline image editing. Prompt record:
+`readme/hub-generation-prompts.json`. Runtime paths/display sizes:
+`assets/data/hub.json`. Portal art reuses the existing generated object binding.
+
+Read `RIGHTS_AND_NOTICES.md` for ownership limitations, dependency attribution,
+and the unresolved license review of older assets/music before public release.
+
 - `assets/environment/cube_dungeon_atlas_v1.png`: new environment atlas generated
   using the built-in OpenAI ImageGen tool for this project. No commercial game
   texture pack or external third-party download was used for this addition.

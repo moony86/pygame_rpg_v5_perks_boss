@@ -67,3 +67,10 @@ archive/notes/                 ملاحظات غير مستخدمة أثناء �
 نسخة للاختبار وليست إعلان جاهزية تجارية. المسدس سلاح البداية المؤقت لكل البلدات، وبدائل الداش القديمة في متجر المعالج ما زالت موجودة. راجع [القيود ومراجعة البلدات](readme/BOSS_ASCENT_AND_BUILD_AUDIT.md).
 
 [تفاصيل التغييرات](CHANGELOG.md) · [بناء Windows](readme/BUILD_GAME.md) · [مصدر الأصول وحدود مراجعة التراخيص](CREDITS.md)
+
+## بناء EXE بنظام مجلد كامل
+
+شغّل `build.bat` بعد تثبيت Python 3.12 x64. يجهّز بيئة بناء منفصلة، ويفحص
+المشروع، ثم ينشئ `dist/windows-تاريخ/BlueCube/` باستخدام PyInstaller onedir.
+الملف `dist/latest-windows.txt` يدلّك على آخر مجلد ناجح. انسخ المجلد كاملًا،
+وليس EXE وحده. راجع [دليل البناء والـHub](readme/HUB_AND_WINDOWS_BUILD.md).

@@ -1,0 +1,25 @@
+{
+  "tool": "built-in image_gen",
+  "assets": [
+    [
+      "floor",
+      "Use case: stylized-concept. Asset type: full playable top-down 2D pixel-art hub background, wide landscape 16:9, no UI. Original dark blue stone sanctuary for a blue cube roguelite, crisp detailed pixel art, nearly orthographic slight top-down perspective matching dungeon floor sprites. Broad EMPTY WALKABLE dark stone floor throughout center, low perimeter walls, subtle warm amber lanterns on outer walls, restrained cyan inlaid paths leading from center to a raised EMPTY circular portal dais at top center. Four small EMPTY circular station pads: left middle amber, right middle green, bottom left violet, bottom right warm amber. No characters, no portal itself, no furniture/obstacles in walkable space, no text, no letters, no logos, no UI, no watermark. Floor should remain low contrast so small player is readable. Architectural depth at outer perimeter only, not a perspective room with horizon. Production game background, not concept poster."
+    ],
+    [
+      "blacksmith",
+      "Use case: stylized-concept. Asset type: single transparent pixel-art NPC sprite for a top-down roguelite. Original squat cube-shaped mechanical blacksmith, warm brass and dark steel body, square head with glowing amber eyes, leather apron, big hammer held at side and small anvil at feet. Facing down toward player in three-quarter top-down view, entire character and anvil visible with generous transparent margins. Crisp deliberate 64px-style pixel clusters enlarged, shaded metal outlines, no smooth illustration look. Isolated centered, no text, no letters, no floor tile, no shadow backdrop, no logo. Dark dungeon palette with amber highlights, readable silhouette. Genuine transparent background."
+    ],
+    [
+      "healer",
+      "Use case: stylized-concept. Asset type: single transparent pixel-art NPC sprite for a top-down roguelite. Original squat cube-shaped green apothecary automaton, square head with gentle glowing green eyes, forest green hood and ivory tunic, holds luminous green potion flask in one hand and short staff with leaf-shaped crystal in other. Facing down toward player in three-quarter top-down view, whole figure and feet visible with transparent margin. Crisp deliberate 64px-style pixel clusters enlarged, shaded metal and cloth, clear outline, no smooth illustration. Isolated centered, no lettering, no medical cross, no floor, no text, no watermark. Matching dark dungeon palette, readable silhouette. Genuine transparent background."
+    ],
+    [
+      "seer",
+      "Use case: stylized-concept. Asset type: single transparent pixel-art NPC sprite for a top-down roguelite. Original mysterious small cube automaton seer, angular deep violet hood, square floating head with one cyan crystal eye, holds glowing violet star-chart orb above an open book. Facing down toward player in three-quarter top-down view, whole figure visible with generous margin. Crisp deliberate 64px-style pixel clusters enlarged, strong readable outline and dark dungeon shading, not painterly. Isolated centered, no words or letters in book, no floor or backdrop, no logo or watermark. Genuine transparent background."
+    ],
+    [
+      "tea_vendor",
+      "Use case: stylized-concept. Asset type: single transparent pixel-art NPC sprite and compact stall for top-down roguelite. Original friendly square copper robot tea merchant behind a compact waist-high walnut tea counter, small brass kettle and two cyan cups on counter, square expressive amber eyes and fabric scarf. Whole self-contained little stall visible with generous transparent margin, facing player in three-quarter top-down view. Crisp deliberate 64px-style pixel clusters enlarged, dark dungeon palette with warm brass glow, consistent shading and outlines, not painterly. Isolated centered, no canopy or large roof, no text, no labels, no floor, no logo, no watermark. Genuine transparent background."
+    ]
+  ]
+}

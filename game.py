@@ -819,7 +819,7 @@ class Game:
                     self.feel.shake(0.08, 2.5)
 
             self.player.visual_charge=0.
-            if pygame.mouse.get_pressed()[0]:
+            if pygame.mouse.get_pressed()[0] and not (self.state == GameState.HUB and self.dialogue.active):
                 attack = self.player.try_weapon_attack()
 
                 if attack is None:
@@ -1099,18 +1099,9 @@ class Game:
                         draw_room_banner(self.screen, self.big_font, self.font, self.rooms)
                     draw_minimap(self.screen, self.player, self.enemies, getattr(self, "room_obstacles", []), stage=stage)
 
-                    npc = nearest_npc(self.player, self.npcs) if self.state == GameState.HUB else None
-                    if npc:
-                        pos = self.camera.apply_pos(pygame.Vector2(npc.rect.centerx, npc.rect.top - 26))
-                        hint = "Press E to enter dungeon" if npc.role == "portal" else "Press E to talk"
-                        hint_surf = self.font.render(hint, True, (255, 235, 120))
-                        hint_bg = pygame.Surface((hint_surf.get_width() + 18, hint_surf.get_height() + 10), pygame.SRCALPHA)
-                        hint_bg.fill((0, 0, 0, 175))
-                        hint_rect = hint_bg.get_rect(center=(round(pos.x), round(pos.y)))
-                        self.screen.blit(hint_bg, hint_rect)
-                        self.screen.blit(hint_surf, hint_surf.get_rect(center=hint_rect.center))
-                    if npc and npc.role in ("blacksmith", "healer"):
-                        draw_shop_hint(self.screen, self.font, npc.role, self.upgrades, player_gold=self.player.gold)
+                    if self.state == GameState.HUB:
+                        from ui.hub import draw as draw_hub
+                        draw_hub(self.screen, self)
 
                     if self.message and pygame.key.get_pressed()[pygame.K_TAB]:
                         txt = self.font.render(self.message, True, BLACK)

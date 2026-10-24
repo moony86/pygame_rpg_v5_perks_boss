@@ -1,73 +1,45 @@
-# Blue Cube build guide
+# Build BlueCube for Windows (onedir)
 
-Start with Python 3.12 and the root README's `.venv` setup. Install Nuitka
-separately into that build environment (not needed to run the game); a compatible
-Windows C compiler is also required. Run `tests/run_all.py` before packaging.
-
-This project uses Nuitka to create the playable Windows build that `setup.iss`
-later packages into an installer.
-
-## 1. Build the game folder
-
-Open PowerShell in this folder:
-
-```powershell
-cd pygame_rpg_v5_perks_boss
-```
-
-Run the standalone Nuitka build:
+Install **Python 3.12 x64** on the build machine, then double-click `build.bat`
+or run it from the repository root:
 
 ```powershell
 .\build.bat
 ```
 
-The game exe will be created here:
+The script creates an isolated `.build-venv`, installs the pinned dependencies
+from `requirements-build.txt`, runs the full regression suite, builds with
+PyInstaller 6.21.0 in explicit **onedir** mode and runs the resulting EXE's
+offline frozen-resource check. First dependency installation requires internet.
+Nuitka and a C compiler are not required for this workflow.
+
+Each build is a new dated directory; previous builds are preserved:
 
 ```text
-dist_nuitka_demo\main.dist\BlueCube.exe
+dist/windows-YYYYMMDD-HHMMSS/BlueCube/BlueCube.exe
+dist/windows-YYYYMMDD-HHMMSS/BlueCube/_internal/
 ```
 
-## 2. Quick test
+`dist/latest-windows.txt` points to the latest successful output. Copy the
+**entire BlueCube folder** to the player's Windows machine. No Python install,
+onefile extraction, ZIP or installer is needed for the player. Never copy just
+the EXE or mix its `_internal` folder with another build.
 
-Run:
+The output includes player instructions, CREDITS, rights/dependency notices,
+installed license material, an automated smoke report and a SHA-256 build
+manifest. Failure of tests/build/smoke returns a nonzero status. A failed dated
+folder may remain for diagnostics and should not be distributed.
 
-```powershell
-.\dist_nuitka_demo\main.dist\BlueCube.exe
-```
+After source or asset edits, run `build.bat` again. Expert local iteration can
+call `.build-venv/Scripts/python.exe tools/build_windows.py --skip-tests`, but
+that fact is recorded in the manifest; normal builds do not skip tests.
 
-Opening the game is only a smoke check. Verify full runs, native frame times,
-and the standalone folder on another machine before installer packaging.
-This branch has not rebuilt or certified a new EXE. Preserve any old output
-you need before building: the build command can replace its output directory.
+An optional Inno Setup script remains available: `setup.iss` now requires an
+explicit `BuildFolder` define pointing to a verified onedir folder. It no
+longer silently packages the stale Nuitka output. No installer is built here.
 
-## 3. Build the installer later
-
-`setup.iss` already points to:
-
-```text
-.\dist_nuitka_demo\main.dist\BlueCube.exe
-.\dist_nuitka_demo\main.dist\*
-```
-
-So after rebuilding the game, open `setup.iss` with Inno Setup and compile it.
-The installer output goes to:
-
-```text
-installer_output\BlueCube_v0.5_Setup.exe
-```
-
-## Notes
-
-- Source and assets are tracked; generated EXEs, DLLs and installers are not.
-- Installer version metadata remains 0.5 until a deliberate release version update.
-- No store publication is performed here.
-
-- Rebuild with Nuitka after changing Python code or assets.
-- Packaged/frozen builds default dev tools off automatically. The release build
-  command still sets `BLUECUBE_DEV_TOOLS=0` before invoking Nuitka as an explicit
-  safety signal. Normal source runs with `python main.py` leave the variable
-  unset, which keeps developer tools enabled for local development.
-- Keep the `assets` folder included, because the player, gun, bullets, sounds,
-  and music are loaded from there.
-- If Nuitka reports an SCons/cache lock, close any running build process and try
-  again after a minute.
+Automated checks do not replace human playtests, clean-machine verification,
+native frame-time measurements or license review. This is an unsigned test
+EXE, not a code-signed public release. Read
+[HUB_AND_WINDOWS_BUILD.md](HUB_AND_WINDOWS_BUILD.md) and the root
+`RIGHTS_AND_NOTICES.md` before distribution.

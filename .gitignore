@@ -28,6 +28,7 @@ assets/data/*.json.tmp
 
 # Local/generated files, never source distributions.
 .venv/
+.build-venv/
 .agents/
 .codex/
 debug_screenshots/

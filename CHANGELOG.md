@@ -1,5 +1,13 @@
 # Demo overhaul — 2026-10-24
 
+## Sanctuary and Windows onedir follow-up
+
+- New full sanctuary background and four transparent keeper sprites, with cached rendering, scene labels, perimeter colliders and role-based station placement.
+- Contextual portrait-backed shop panels support mouse/number-key purchases and actual upgrade effects. Legacy replacement skills are explicitly marked; no balance removal hidden in the UI pass.
+- Added five hub regression checks and native render captures; duplicate guidance hidden during dialogue.
+- Windows build now uses pinned PyInstaller onedir in an isolated build environment. Dated outputs preserve previous builds, with full test gate, actual frozen-EXE resource smoke, player instructions, license material and SHA-256 manifest. Installer requires an explicit verified folder.
+- Added factual AI-art disclosure and rights notices; existing music/asset licensing remains unresolved before a public release. No claim of automatic exclusive copyright or store readiness.
+
 Branch: `codex/bluecube-demo-overhaul`. Base: `c44930c` (previous main). No history rewrite or force push.
 
 ## Gameplay and progression

@@ -7,7 +7,9 @@ from ui.common import fitted_text
 def draw_guidance(surface, game):
     state = game.state.name
     if state == "HUB":
-        text = "START: Go to the Gatekeeper above you. Press E nearby, then E again to enter."
+        if game.dialogue.active:
+            return  # One dialogue/interaction prompt at a time.
+        text = "SANCTUARY  /  North: challenge gate  /  Approach a keeper and press E"
         for npc in game.npcs:
             if npc.role == "portal":
                 pos = game.camera.apply_pos(pygame.Vector2(npc.rect.centerx, npc.rect.top - 58))

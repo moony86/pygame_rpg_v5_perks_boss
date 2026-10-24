@@ -82,6 +82,9 @@ class NPC:
         self._anim += dt
 
     def draw(self, surface, camera):
+        from systems.hub_presentation import draw_npc
+        if draw_npc(surface, camera, self):
+            return
         sr = camera.apply_rect(self.rect)
         cx, cy = sr.centerx, sr.centery
         x, y, w, h = sr.x, sr.y, sr.width, sr.height

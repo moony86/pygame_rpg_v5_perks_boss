@@ -1,0 +1,11 @@
+{
+  "background": "hub/sanctuary_v1.png",
+  "colliders": [[0, 0, 130, 1080], [1790, 0, 130, 1080], [0, 1010, 1920, 70], [0, 0, 760, 220], [1160, 0, 760, 220], [760, 0, 400, 74]],
+  "npcs": {
+    "blacksmith": {"art": "hub/blacksmith_v1.png", "size": [112, 112], "label": "FORGE", "action": "Upgrade weapon", "color": [235, 182, 95]},
+    "healer": {"art": "hub/healer_v1.png", "size": [96, 112], "label": "APOTHECARY", "action": "Heal & prepare", "color": [123, 224, 165]},
+    "seer": {"art": "hub/seer_v1.png", "size": [96, 112], "label": "ORACLE", "action": "Learn the route", "color": [187, 156, 240]},
+    "tea_vendor": {"art": "hub/tea_vendor_v1.png", "size": [140, 112], "label": "TEA KEEPER", "action": "Take tea", "color": [236, 188, 113]},
+    "portal": {"art": "", "size": [0, 0], "label": "RIFT GATE", "action": "Start challenge", "color": [97, 222, 245]}
+  }
+}

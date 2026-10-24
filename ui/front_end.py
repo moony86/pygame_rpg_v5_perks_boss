@@ -142,6 +142,7 @@ def draw_menu(surface,game):
             draw_button(surface,rect,label,game.menu_focus==index or rect.collidepoint(mouse),index==0)
         text(surface,'WASD move    Mouse fire    Release Space to dash',(185,905),22,MUTED)
     text(surface,'DEVELOPMENT DEMO',(1400,990),22,MUTED)
+    text(surface,'moony86  /  AI-assisted art  /  Credits & notices included',(180,1000),22,MUTED)
     # Native pointer is hidden by Game; menu must still show an actual pointer.
     x,y=game.game_mouse_pos()
     pygame.draw.polygon(surface,TEXT,[(x,y),(x+5,y+20),(x+10,y+13),(x+18,y+12)])

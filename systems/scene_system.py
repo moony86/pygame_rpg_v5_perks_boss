@@ -87,14 +87,14 @@ def enter_hub(game):
     game.events.emit("state_hub")
     bounds = current_room_bounds()
 
-    game.portal_rect = game.prefabs.spawn_prefab("portal_hub", x=bounds.centerx - 45, y=bounds.centery - 265)
+    game.portal_rect = game.prefabs.spawn_prefab("portal_hub", x=bounds.centerx - 45, y=105)
 
     game.npcs = [
-        game.prefabs.spawn_prefab("npc_blacksmith", x=bounds.centerx - 310, y=bounds.centery - 35),
-        game.prefabs.spawn_prefab("npc_healer", x=bounds.centerx + 250, y=bounds.centery - 35),
-        game.prefabs.spawn_prefab("npc_gatekeeper", x=bounds.centerx - 23, y=bounds.centery - 188),
-        game.prefabs.spawn_prefab("npc_seer", x=bounds.centerx - 255, y=bounds.centery + 185),
-        game.prefabs.spawn_prefab("npc_tea_vendor", x=bounds.centerx + 205, y=bounds.centery + 185),
+        game.prefabs.spawn_prefab("npc_blacksmith", x=250, y=390),
+        game.prefabs.spawn_prefab("npc_healer", x=1625, y=390),
+        game.prefabs.spawn_prefab("npc_gatekeeper", x=bounds.centerx - 23, y=245),
+        game.prefabs.spawn_prefab("npc_seer", x=255, y=840),
+        game.prefabs.spawn_prefab("npc_tea_vendor", x=1625, y=840),
     ]
 
     _carry_visit_counts(old_npcs, game.npcs)
@@ -104,6 +104,9 @@ def enter_hub(game):
     game.collision.clear()
     game.collision.add_entities(game.npcs)
     game.collision.add_rect(game.portal_rect)
+    from systems.hub_presentation import HUB
+    for rect in HUB['colliders']:
+        game.collision.add_rect(pygame.Rect(rect))
 
 
 def enter_room(game):
