@@ -141,7 +141,11 @@ class PrototypeCombatRoom:
                 kept.append(entry)
                 continue
             door = self.doors[entry["door_id"]]
-            enemy = game.enemy_pool.acquire(door.x, door.y, entry["enemy_type"], difficulty=1.0)
+            from systems.stage_progression import difficulty, apply
+            pressure = difficulty(game.stage) if self.stage_room is not None else 1.0
+            enemy = game.enemy_pool.acquire(door.x, door.y, entry["enemy_type"], difficulty=pressure)
+            if self.stage_room is not None:
+                apply(enemy, game.stage)
             enemy.prototype_room_enemy = True
             game.enemies.append(enemy)
             active_count += 1
@@ -195,6 +199,7 @@ class PrototypeCombatRoom:
         stage = getattr(self.game, "stage", None)
         if not stage or not stage.active:
             return
+        stage.draw_boss_gate(surface, camera, font)
         node = stage.current_node
         if node is None:
             return

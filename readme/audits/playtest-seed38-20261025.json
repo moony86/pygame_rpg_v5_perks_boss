@@ -1,0 +1,400 @@
+{
+  "limitations": "Shooting/walking bot with periodic input-path dash. Not a human balance verdict.",
+  "attempts": [
+    {
+      "seed": 38,
+      "outcome": "stage_complete",
+      "simulated_seconds": 1069.95,
+      "post_outcome_hp": 125,
+      "kills": 428,
+      "cleared_rooms": 10,
+      "total_rooms": 10,
+      "choices": [
+        "rapid_fire",
+        "explosive_rounds",
+        "split_shot",
+        "rapid_fire",
+        "rapid_fire",
+        "power_rounds",
+        "hollow_point",
+        "power_rounds",
+        "power_rounds",
+        "critical_spark",
+        "rapid_fire",
+        "power_rounds",
+        "split_shot",
+        "split_shot",
+        "critical_spark",
+        "hollow_point",
+        "split_shot",
+        "critical_spark",
+        "critical_spark"
+      ],
+      "trace": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 0.02,
+          "hp": 125,
+          "level": 1
+        },
+        {
+          "room": 9,
+          "type": "New room",
+          "at_seconds": 57.88,
+          "hp": 98,
+          "level": 5
+        },
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 143.75,
+          "hp": 49,
+          "level": 9
+        },
+        {
+          "room": 4,
+          "type": "Elite",
+          "at_seconds": 148.42,
+          "hp": 49,
+          "level": 9
+        },
+        {
+          "room": 7,
+          "type": "Elite",
+          "at_seconds": 232.77,
+          "hp": 107,
+          "level": 12
+        },
+        {
+          "room": 8,
+          "type": "Antechamber",
+          "at_seconds": 339.68,
+          "hp": 125,
+          "level": 15
+        },
+        {
+          "room": 5,
+          "type": "Combat",
+          "at_seconds": 750.82,
+          "hp": 125,
+          "level": 16
+        },
+        {
+          "room": 2,
+          "type": "Combat",
+          "at_seconds": 832.1,
+          "hp": 125,
+          "level": 17
+        },
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 890.58,
+          "hp": 125,
+          "level": 18
+        },
+        {
+          "room": 3,
+          "type": "Treasure",
+          "at_seconds": 898.98,
+          "hp": 125,
+          "level": 18
+        },
+        {
+          "room": 6,
+          "type": "Combat",
+          "at_seconds": 943.43,
+          "hp": 125,
+          "level": 18
+        },
+        {
+          "room": 10,
+          "type": "Boss",
+          "at_seconds": 1028.8,
+          "hp": 125,
+          "level": 20
+        }
+      ],
+      "rooms": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "clear_room_seconds": 55.83,
+          "hp_at_clear": 98,
+          "level_at_clear": 4
+        },
+        {
+          "room": 9,
+          "type": "New room",
+          "clear_room_seconds": 84.7,
+          "hp_at_clear": 24,
+          "level_at_clear": 7
+        },
+        {
+          "room": 4,
+          "type": "Elite",
+          "clear_room_seconds": 83.57,
+          "hp_at_clear": 67,
+          "level_at_clear": 11
+        },
+        {
+          "room": 7,
+          "type": "Elite",
+          "clear_room_seconds": 102.95,
+          "hp_at_clear": 125,
+          "level_at_clear": 14
+        },
+        {
+          "room": 8,
+          "type": "Antechamber",
+          "clear_room_seconds": 408.1,
+          "hp_at_clear": 125,
+          "level_at_clear": 15
+        },
+        {
+          "room": 5,
+          "type": "Combat",
+          "clear_room_seconds": 77.87,
+          "hp_at_clear": 125,
+          "level_at_clear": 17
+        },
+        {
+          "room": 2,
+          "type": "Combat",
+          "clear_room_seconds": 57.22,
+          "hp_at_clear": 125,
+          "level_at_clear": 18
+        },
+        {
+          "room": 3,
+          "type": "Treasure",
+          "clear_room_seconds": 39.78,
+          "hp_at_clear": 125,
+          "level_at_clear": 18
+        },
+        {
+          "room": 6,
+          "type": "Combat",
+          "clear_room_seconds": 82.17,
+          "hp_at_clear": 125,
+          "level_at_clear": 19
+        },
+        {
+          "room": 10,
+          "type": "Boss",
+          "clear_room_seconds": 38.33,
+          "hp_at_clear": 43,
+          "level_at_clear": 20
+        }
+      ],
+      "bot_has_dash_policy": true,
+      "build": "Gunslinger",
+      "dash_uses": 150,
+      "enemy_actions": {
+        "enemy_jump:": 49,
+        "enemy_shoot:": 73,
+        "hunter_homing:": 127,
+        "brute_charge:": 4,
+        "elite_cross:": 9,
+        "elite_burst:": 5,
+        "elite_laser:": 4,
+        "boss_trial:intro": 1,
+        "boss_trial:warning": 6,
+        "boss_trial:attack": 6,
+        "boss_trial:rise": 2,
+        "boss_trial:summon_warning": 2,
+        "boss_trial:reinforcements": 2,
+        "boss_trial:landing": 2,
+        "boss_trial:phase": 2
+      },
+      "max_enemies": 8,
+      "max_enemy_bullets": 29,
+      "reset_clean": true
+    },
+    {
+      "seed": 38,
+      "outcome": "death",
+      "simulated_seconds": 197.28,
+      "post_outcome_hp": 0,
+      "kills": 133,
+      "cleared_rooms": 2,
+      "total_rooms": 10,
+      "choices": [
+        "phantom_step",
+        "overclock",
+        "kinetic_rounds",
+        "blade_drone",
+        "bomber_drone",
+        "explosive_rounds",
+        "explosive_rounds",
+        "bomber_drone",
+        "explosive_rounds"
+      ],
+      "trace": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 0.02,
+          "hp": 125,
+          "level": 1
+        },
+        {
+          "room": 9,
+          "type": "New room",
+          "at_seconds": 60.48,
+          "hp": 90,
+          "level": 5
+        },
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 149.78,
+          "hp": 52,
+          "level": 9
+        },
+        {
+          "room": 4,
+          "type": "Elite",
+          "at_seconds": 154.4,
+          "hp": 52,
+          "level": 9
+        }
+      ],
+      "rooms": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "clear_room_seconds": 56.8,
+          "hp_at_clear": 90,
+          "level_at_clear": 4
+        },
+        {
+          "room": 9,
+          "type": "New room",
+          "clear_room_seconds": 86.03,
+          "hp_at_clear": 52,
+          "level_at_clear": 8
+        }
+      ],
+      "bot_has_dash_policy": true,
+      "build": "Ninja",
+      "dash_uses": 93,
+      "enemy_actions": {
+        "enemy_jump:": 44,
+        "enemy_shoot:": 80,
+        "hunter_homing:": 90,
+        "brute_charge:": 3,
+        "elite_cross:": 5,
+        "elite_burst:": 5,
+        "elite_laser:": 3
+      },
+      "max_enemies": 9,
+      "max_enemy_bullets": 19,
+      "reset_clean": true
+    },
+    {
+      "seed": 38,
+      "outcome": "death",
+      "simulated_seconds": 95.25,
+      "post_outcome_hp": 0,
+      "kills": 61,
+      "cleared_rooms": 1,
+      "total_rooms": 10,
+      "choices": [
+        "impact_drive",
+        "blade_drone",
+        "bomber_drone",
+        "blade_drone",
+        "bomber_drone"
+      ],
+      "trace": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 0.02,
+          "hp": 125,
+          "level": 1
+        },
+        {
+          "room": 9,
+          "type": "New room",
+          "at_seconds": 61.48,
+          "hp": 68,
+          "level": 5
+        }
+      ],
+      "rooms": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "clear_room_seconds": 57.63,
+          "hp_at_clear": 68,
+          "level_at_clear": 4
+        }
+      ],
+      "bot_has_dash_policy": true,
+      "build": "Engineer",
+      "dash_uses": 14,
+      "enemy_actions": {
+        "enemy_jump:": 24,
+        "enemy_shoot:": 36,
+        "hunter_homing:": 64
+      },
+      "max_enemies": 9,
+      "max_enemy_bullets": 9,
+      "reset_clean": true
+    },
+    {
+      "seed": 38,
+      "outcome": "death",
+      "simulated_seconds": 88.87,
+      "post_outcome_hp": 0,
+      "kills": 50,
+      "cleared_rooms": 1,
+      "total_rooms": 10,
+      "choices": [
+        "sanguine_rounds",
+        "blood_trail",
+        "sanguine_rounds",
+        "blood_trail"
+      ],
+      "trace": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 0.02,
+          "hp": 125,
+          "level": 1
+        },
+        {
+          "room": 9,
+          "type": "New room",
+          "at_seconds": 63.88,
+          "hp": 76,
+          "level": 5
+        }
+      ],
+      "rooms": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "clear_room_seconds": 59.17,
+          "hp_at_clear": 76,
+          "level_at_clear": 4
+        }
+      ],
+      "bot_has_dash_policy": true,
+      "build": "Vampire",
+      "dash_uses": 13,
+      "enemy_actions": {
+        "enemy_jump:": 28,
+        "enemy_shoot:": 30,
+        "hunter_homing:": 80
+      },
+      "max_enemies": 10,
+      "max_enemy_bullets": 9,
+      "reset_clean": true
+    }
+  ]
+}

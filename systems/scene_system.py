@@ -65,7 +65,12 @@ def enter_hub(game):
     old_npcs = getattr(game, "npcs", [])
 
     game.state = GameState.HUB
-    game.player.move_to_hub_spawn()
+    from systems.hub_presentation import HUB, reload_hub
+    from systems.hub_document import colliders as hub_colliders
+    reload_hub()
+    game.player.rect.center = HUB['spawn']
+    if hasattr(game.player, 'pos'):
+        game.player.pos = pygame.Vector2(game.player.rect.center)
     if hasattr(game.player, "reset_ninja_scene_state"):
         game.player.reset_ninja_scene_state()
     if hasattr(game.player, "reset_engineer_scene_state"):
@@ -87,7 +92,7 @@ def enter_hub(game):
     game.events.emit("state_hub")
     bounds = current_room_bounds()
 
-    game.portal_rect = game.prefabs.spawn_prefab("portal_hub", x=bounds.centerx - 45, y=105)
+    game.portal_rect = game.prefabs.spawn_prefab("portal_hub", x=HUB['gate'][0], y=HUB['gate'][1])
 
     game.npcs = [
         game.prefabs.spawn_prefab("npc_blacksmith", x=250, y=390),
@@ -96,6 +101,8 @@ def enter_hub(game):
         game.prefabs.spawn_prefab("npc_seer", x=255, y=840),
         game.prefabs.spawn_prefab("npc_tea_vendor", x=1625, y=840),
     ]
+    for npc in game.npcs:
+        npc.rect.topleft = HUB['positions'][npc.role]
 
     _carry_visit_counts(old_npcs, game.npcs)
     _refresh_npc_dialogues(game)
@@ -104,9 +111,8 @@ def enter_hub(game):
     game.collision.clear()
     game.collision.add_entities(game.npcs)
     game.collision.add_rect(game.portal_rect)
-    from systems.hub_presentation import HUB
-    for rect in HUB['colliders']:
-        game.collision.add_rect(pygame.Rect(rect))
+    for rect in hub_colliders(HUB):
+        game.collision.add_rect(rect)
 
 
 def enter_room(game):

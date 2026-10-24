@@ -8,7 +8,7 @@ from systems.object_catalog import sprite
 
 TUNING=json.loads((ASSET_ROOT/'data/boss_trial.json').read_text(encoding='utf-8'))
 PHASE_NAMES=('BREAK THE GUARD','SEVER THE EYES','TURN THE STRIKE')
-PATTERNS=(('fan','ring'),('cross','fan'),('parry_orb','fan','parry_orb','ring'))
+PATTERNS=(('fan','ring'),('ring','cross','fan'),('parry_orb','ring','fan','parry_orb','cross'))
 
 
 class BossEncounter:
@@ -37,6 +37,8 @@ class BossEncounter:
         self.air_age=0.
         self.lift=0.
         self.summon_count=0
+        self.followups=[]
+        self.turrets=[]
         boss.shield=0
 
     def advance_damage_budget(self,dt):
@@ -123,6 +125,8 @@ class BossEncounter:
             ceiling=math.ceil(boss.max_health*2/3)
             boss.health=min(ceiling,boss.health+boss.max_health*TUNING['eye_heal_ratio_per_second']*len(eyes)*dt)
         if self.state=='transition':
+            self.turrets.clear()
+            self.followups.clear()
             if self.timer<=0:
                 self.state='ascending'
                 self.timer=TUNING['rise_seconds']
@@ -186,6 +190,8 @@ class BossEncounter:
             if self.timer<=0:
                 self.state='guard'
                 self.timer=TUNING['guard_seconds'][self.phase-1]
+            if self.state=='exposed':
+                self.approach(player_pos,dt,0.65)
             return None
         if self.timer<=0:
             patterns=PATTERNS[self.phase-1]
@@ -199,13 +205,73 @@ class BossEncounter:
             boss._start_windup(self.timer,direction.normalize(),'boss_'+self.pattern)
             return self.action('warning')
         # No untelegraphed dash-on-hit. Approach at a readable speed during guard only.
-        direction=pygame.Vector2(player_rect.center)-boss.rect.center
-        if direction.length()>320:
-            boss._move(direction.normalize()*.38,dt)
+        self.approach(player_pos,dt,1.)
         if eyes and self.heal_sound_timer<=0:
             self.heal_sound_timer=1.4
             return self.action('healing')
         return None
+
+    def approach(self,player_pos,dt,factor):
+        direction=player_pos-pygame.Vector2(self.boss.rect.center)
+        if direction.length()>240:
+            self.boss._move(direction.normalize()*TUNING['approach_multiplier'][self.phase-1]*factor,dt)
+
+    def tick_hazards(self,dt,player,bullets):
+        """Called only on active AI frames; Time Stop and pause freeze hazards."""
+        if not self.boss.alive or self.state in ('intro','transition','ascending','summoning','airborne','landing'):
+            self.followups.clear()
+            self.turrets.clear()
+            return
+        from entities.enemy_bullet import EnemyBullet
+        for shot in self.followups[:]:
+            shot['timer']-=dt
+            if shot['timer']<=0:
+                self.emit_ring(bullets,shot['direction'],offset=15,speed=260)
+                self.followups.remove(shot)
+        for turret in self.turrets[:]:
+            turret['life']-=dt
+            turret['timer']-=dt
+            if turret['life']<=0:
+                self.turrets.remove(turret)
+                continue
+            # Lock aim during the warning; not a hidden homing shot.
+            if turret['timer']>TUNING['turret_warning']:
+                direction=pygame.Vector2(player.rect.center)-turret['pos']
+                turret['direction']=direction.normalize() if direction.length_squared() else pygame.Vector2(1,0)
+            if turret['timer']<=0:
+                for angle in (-12,0,12):
+                    bullet=EnemyBullet(*turret['pos'],turret['direction'].rotate(angle),16,
+                        speed=TUNING['turret_speed'],owner_id=id(self.boss))
+                    bullet.remaining_life=5.
+                    bullets.append(bullet)
+                turret['timer']=TUNING['turret_cooldown']
+
+    def emit_ring(self,bullets,base,offset=0,speed=330):
+        from entities.enemy_bullet import EnemyBullet
+        # Opposed 60-degree escape sectors remain open in both volleys.
+        for angle in range(0,360,20):
+            if 60<=angle<120 or 240<=angle<300:
+                continue
+            bullets.append(EnemyBullet(*self.boss.rect.center,base.rotate(angle+offset),
+                15+self.phase*2,speed=speed,owner_id=id(self.boss)))
+
+    def spawn_turrets(self,player):
+        self.turrets=[]
+        bounds=current_room_rect()
+        solids=getattr(self,'arena_solids',())
+        candidates=[]
+        for y in range(bounds.top+250,bounds.bottom-170,130):
+            for x in range(bounds.left+330,bounds.right-300,130):
+                box=pygame.Rect(x-52,y-52,104,104)
+                if any(box.colliderect(s) for s in solids) or pygame.Vector2(x,y).distance_to(player.rect.center)<270:
+                    continue
+                candidates.append(pygame.Vector2(x,y))
+        for i in range(min(TUNING['turret_count'],len(candidates))):
+            point=max(candidates,key=lambda p:min([p.distance_squared_to(t['pos']) for t in self.turrets] or [p.distance_squared_to(player.rect.center)]))
+            candidates.remove(point)
+            direction=pygame.Vector2(player.rect.center)-point
+            self.turrets.append({'pos':point,'direction':direction.normalize() if direction.length_squared() else pygame.Vector2(1,0),
+                'timer':1.8+i*.7,'life':TUNING['turret_seconds']})
 
     def action(self,event):
         return {'type':'boss_trial','event':event,'encounter':self,'phase':self.phase,
@@ -290,8 +356,8 @@ class BossEncounter:
             self.summon_count+=1
             for i,point in enumerate(self.spawn_points):
                 # Authored enemy assets/AI are reused; no rewards or infinite waves.
-                kind=(EnemyType.CHASER_FAST,EnemyType.RANGED,EnemyType.CHASER)[i%3]
-                guard=Enemy(*point,kind,difficulty=1.)
+                kind=(EnemyType.CHASER_FAST,EnemyType.RANGED_THREE,EnemyType.HUNTER,EnemyType.BRUTE,EnemyType.JUMPER_FAST,EnemyType.RANGED_FIVE)[i%6]
+                guard=Enemy(*point,kind,difficulty=TUNING['reinforcement_difficulty'][self.phase-1])
                 guard.is_boss_guard=True
                 guard.guardian_owner_id=id(self.boss)
                 self.guards.append(guard)
@@ -304,6 +370,10 @@ class BossEncounter:
                 audio.play('boss_exposed')
             return
         if event in ('intro','phase'):
+            if event=='phase':
+                self.spawn_turrets(player)
+                if effects:
+                    effects.message('SIEGE TURRETS — dodge until they fade',self.boss.rect.midbottom,color=(255,175,110))
             if event=='phase' and self.phase==2:
                 self.spawn_eyes(enemies)
             if effects:
@@ -329,6 +399,10 @@ class BossEncounter:
             bullet.rect.center=bullet.pos
             bullet.remaining_life=5.
             bullets.append(bullet)
+        elif self.pattern=='ring':
+            self.emit_ring(bullets,base,speed=330+self.phase*20)
+            if self.phase>=2:
+                self.followups.append({'timer':TUNING['followup_delay'],'direction':base.copy()})
         else:
             if self.pattern=='fan':
                 angles=(-28,-14,0,14,28)
@@ -347,6 +421,20 @@ class BossEncounter:
 
     def draw(self,surface,camera):
         center=camera.apply_pos(pygame.Vector2(self.boss.rect.center))
+        turret_art=sprite('boss_turret')
+        for turret in self.turrets:
+            pos=camera.apply_pos(turret['pos'])
+            if turret_art:
+                image=pygame.transform.flip(turret_art,True,False) if turret['direction'].x>0 else turret_art
+                surface.blit(image,image.get_rect(midbottom=(round(pos.x),round(pos.y)+25)))
+            pygame.draw.rect(surface,(55,35,35),(pos.x-24,pos.y+30,48,4))
+            pygame.draw.rect(surface,(245,155,95),(pos.x-24,pos.y+30,48*max(0,turret['life']/TUNING['turret_seconds']),4))
+            if turret['timer']<=TUNING['turret_warning']:
+                from systems.ranged_presentation import draw_telegraph
+                draw_telegraph(surface,pos,turret['direction'],600,turret['timer'],
+                    TUNING['turret_warning'],self.boss._anim,palette=((240,110,80),(255,210,150)))
+        if self.followups:
+            pygame.draw.circle(surface,(255,185,110),center,110,3)
         if self.airborne:
             pygame.draw.ellipse(surface,(55,105,135),(center.x-65,center.y-14,130,28),2)
             center.y-=self.lift
@@ -358,8 +446,8 @@ class BossEncounter:
             from systems.ranged_presentation import draw_telegraph
             colors=((75,220,245),(205,255,255)) if self.pattern=='parry_orb' else ((230,90,75),(255,200,155))
             if self.pattern=='ring':
-                for angle in range(0,360,30):
-                    if angle not in (60,90,240,270):
+                for angle in range(0,360,20):
+                    if not (60<=angle<120 or 240<=angle<300):
                         v=self.boss.windup_direction.rotate(angle)
                         pygame.draw.circle(surface,colors[0],center+v*130,4)
             else:
@@ -402,6 +490,8 @@ def draw_hud(surface,font,boss):
         hint='PHASE SHIFT — guard is closed'
     elif phase==2 and encounter.living_eyes():
         hint=f'{len(encounter.living_eyes())} HEALING EYES — shoot the eyes to stop healing'
+    elif encounter.followups:
+        hint='SECOND BURST — keep moving through an open sector'
     elif encounter.state=='exposed':
         hint=f'CORE EXPOSED  {encounter.timer:.1f}s — attack now'
     elif encounter.pattern=='parry_orb' and encounter.state=='windup':

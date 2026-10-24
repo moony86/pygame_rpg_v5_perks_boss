@@ -1,0 +1,218 @@
+{
+  "limitations": "Shooting/walking bot with periodic input-path dash. Not a human balance verdict.",
+  "attempts": [
+    {
+      "seed": 38,
+      "outcome": "stage_complete",
+      "simulated_seconds": 650.15,
+      "post_outcome_hp": 125,
+      "kills": 430,
+      "cleared_rooms": 10,
+      "total_rooms": 10,
+      "choices": [
+        "rapid_fire",
+        "rapid_fire",
+        "power_rounds",
+        "power_rounds",
+        "split_shot",
+        "power_rounds",
+        "critical_spark",
+        "kinetic_rounds",
+        "rapid_fire",
+        "split_shot",
+        "power_rounds",
+        "rapid_fire",
+        "critical_spark",
+        "split_shot",
+        "kinetic_rounds",
+        "split_shot",
+        "hollow_point",
+        "critical_spark",
+        "overclock"
+      ],
+      "trace": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 0.02,
+          "hp": 125,
+          "level": 1
+        },
+        {
+          "room": 9,
+          "type": "New room",
+          "at_seconds": 61.28,
+          "hp": 97,
+          "level": 5
+        },
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 144.82,
+          "hp": 125,
+          "level": 9
+        },
+        {
+          "room": 4,
+          "type": "Elite",
+          "at_seconds": 149.42,
+          "hp": 125,
+          "level": 9
+        },
+        {
+          "room": 7,
+          "type": "Elite",
+          "at_seconds": 233.37,
+          "hp": 125,
+          "level": 12
+        },
+        {
+          "room": 8,
+          "type": "Antechamber",
+          "at_seconds": 339.68,
+          "hp": 125,
+          "level": 15
+        },
+        {
+          "room": 5,
+          "type": "Combat",
+          "at_seconds": 344.42,
+          "hp": 125,
+          "level": 16
+        },
+        {
+          "room": 2,
+          "type": "Combat",
+          "at_seconds": 424.38,
+          "hp": 125,
+          "level": 17
+        },
+        {
+          "room": 1,
+          "type": "Combat",
+          "at_seconds": 487.78,
+          "hp": 125,
+          "level": 18
+        },
+        {
+          "room": 3,
+          "type": "Treasure",
+          "at_seconds": 496.18,
+          "hp": 125,
+          "level": 18
+        },
+        {
+          "room": 6,
+          "type": "Combat",
+          "at_seconds": 510.05,
+          "hp": 125,
+          "level": 18
+        },
+        {
+          "room": 10,
+          "type": "Boss",
+          "at_seconds": 596.2,
+          "hp": 110,
+          "level": 20
+        }
+      ],
+      "rooms": [
+        {
+          "room": 1,
+          "type": "Combat",
+          "clear_room_seconds": 57.25,
+          "hp_at_clear": 97,
+          "level_at_clear": 4
+        },
+        {
+          "room": 9,
+          "type": "New room",
+          "clear_room_seconds": 83.32,
+          "hp_at_clear": 102,
+          "level_at_clear": 7
+        },
+        {
+          "room": 4,
+          "type": "Elite",
+          "clear_room_seconds": 82.45,
+          "hp_at_clear": 125,
+          "level_at_clear": 11
+        },
+        {
+          "room": 7,
+          "type": "Elite",
+          "clear_room_seconds": 103.75,
+          "hp_at_clear": 125,
+          "level_at_clear": 14
+        },
+        {
+          "room": 8,
+          "type": "Antechamber",
+          "clear_room_seconds": 0.02,
+          "hp_at_clear": 125,
+          "level_at_clear": 15
+        },
+        {
+          "room": 5,
+          "type": "Combat",
+          "clear_room_seconds": 74.63,
+          "hp_at_clear": 125,
+          "level_at_clear": 17
+        },
+        {
+          "room": 2,
+          "type": "Combat",
+          "clear_room_seconds": 57.72,
+          "hp_at_clear": 125,
+          "level_at_clear": 18
+        },
+        {
+          "room": 3,
+          "type": "Treasure",
+          "clear_room_seconds": 9.02,
+          "hp_at_clear": 125,
+          "level_at_clear": 18
+        },
+        {
+          "room": 6,
+          "type": "Combat",
+          "clear_room_seconds": 82.33,
+          "hp_at_clear": 125,
+          "level_at_clear": 19
+        },
+        {
+          "room": 10,
+          "type": "Boss",
+          "clear_room_seconds": 50.35,
+          "hp_at_clear": 62,
+          "level_at_clear": 20
+        }
+      ],
+      "bot_has_dash_policy": true,
+      "build": "Gunslinger",
+      "diagnostic_boss_fixture": false,
+      "dash_uses": 90,
+      "enemy_actions": {
+        "enemy_jump:": 45,
+        "enemy_shoot:": 63,
+        "hunter_homing:": 128,
+        "brute_charge:": 3,
+        "elite_cross:": 9,
+        "elite_burst:": 3,
+        "enemy_rain:": 1,
+        "boss_trial:intro": 1,
+        "boss_trial:warning": 11,
+        "boss_trial:attack": 11,
+        "boss_trial:rise": 2,
+        "boss_trial:summon_warning": 2,
+        "boss_trial:reinforcements": 2,
+        "boss_trial:landing": 2,
+        "boss_trial:phase": 2,
+        "boss_trial:healing": 2
+      },
+      "max_enemies": 8,
+      "max_enemy_bullets": 34,
+      "reset_clean": true
+    }
+  ]
+}

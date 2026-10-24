@@ -5,7 +5,15 @@ import math
 import pygame
 from systems.asset_loader import ASSET_ROOT, load_image
 
-HUB = json.loads((ASSET_ROOT / 'data/hub.json').read_text(encoding='utf-8'))
+from systems.hub_document import load
+HUB = load()
+
+
+def reload_hub():
+    HUB.clear()
+    HUB.update(load())
+    art.cache_clear()
+    background.cache_clear()
 
 
 @lru_cache(maxsize=12)

@@ -52,7 +52,9 @@ def handle_combat_events(game, event):
                 return
             on_door = any(game.player.rect.colliderect(rect) for _, _, rect in game.stage.open_doors())
             on_exit = game.room_exit_open and game.player.rect.colliderect(game.room_exit_rect)
-            if not (on_door or on_exit):
+            on_boss_gate = (game.stage.boss_unlocked and not node.room.boss
+                            and game.player.rect.colliderect(game.stage.boss_gate_rect()))
+            if not (on_door or on_exit or on_boss_gate):
                 return
             collect_exit_loot(game)
             if game.stage.try_use_door(game.player.rect):

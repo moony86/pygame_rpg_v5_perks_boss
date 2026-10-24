@@ -47,11 +47,13 @@ class Handler(BaseHTTPRequestHandler):
                  "/visual_inspector.js": (WEB / "visual_inspector.js", "text/javascript; charset=utf-8"),
                  "/editor.js": (WEB / "editor.js", "text/javascript; charset=utf-8"),
                  "/editor.css": (WEB / "editor.css", "text/css; charset=utf-8"),
+                 "/hub": (WEB / "hub.html", "text/html; charset=utf-8"),
+                 "/hub.js": (WEB / "hub.js", "text/javascript; charset=utf-8"),
                  "/atlas.png": (ROOT / "assets/environment/cube_dungeon_atlas_v1.png", "image/png")}
         if route in files:
             file, mime = files[route]
             body = file.read_bytes()
-            if route == "/":
+            if route in ("/", "/hub"):
                 body = body.replace(b"__EDITOR_TOKEN__", TOKEN.encode())
             return self.response(200, body, mime)
         if route == '/object-art':
@@ -61,6 +63,11 @@ class Handler(BaseHTTPRequestHandler):
             if path.is_relative_to(ASSET_ROOT.resolve()) and path.suffix.lower() == '.png' and path.is_file():
                 return self.response(200, path.read_bytes(), 'image/png')
             return self.response(404, {'error': 'Asset not found'})
+        if route == '/api/hub':
+            if not self.authorized():
+                return self.response(403, {'error': 'Editor token required'})
+            from systems.hub_document import load
+            return self.response(200, {'document': load()})
         if route == '/api/objects':
             if not self.authorized():
                 return self.response(403, {'error': 'Editor token required'})
@@ -88,6 +95,16 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 2_000_000:
                 return self.response(413, {"error": "Document too large"})
             data = json.loads(self.rfile.read(length))
+            if self.path in ('/api/hub/save', '/api/hub/validate', '/api/hub/play'):
+                from systems.hub_document import save, validate
+                errors = validate(data['document'])
+                if errors:
+                    return self.response(422, {'errors': errors})
+                if self.path != '/api/hub/validate':
+                    save(data['document'])
+                if self.path == '/api/hub/play':
+                    subprocess.Popen([sys.executable, str(ROOT / 'tools/play_hub.py')], cwd=str(ROOT))
+                return self.response(200, {'ok': True})
             if self.path == '/api/objects':
                 save_catalog(data['catalog'])
                 return self.response(200, {'ok': True})

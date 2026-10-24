@@ -45,12 +45,14 @@ async function run() {
     await page.locator('#canvas').click({ position: { x: 10, y: 10 } });
     await page.waitForFunction(() => window.__cubeProbe?.state === 'MENU', null, { timeout: 90000 });
     await record('menu');
-    await page.mouse.click(640, 353);
+    const canvasBox = await page.locator('#canvas').boundingBox();
+    await page.mouse.click(canvasBox.x + 380/1920*canvasBox.width,
+                           canvasBox.y + 560/1080*canvasBox.height);
     await page.waitForFunction(() => window.__cubeProbe?.state === 'HUB');
     await record('new_run_hub');
     const baseline = await probe();
     await page.keyboard.down('w');
-    await page.waitForFunction(() => window.__cubeProbe?.position[1] <= 440, null, { timeout: 3000 });
+    await page.waitForFunction(() => window.__cubeProbe?.position[1] <= 350, null, { timeout: 5000 });
     await page.keyboard.up('w');
     if ((await probe()).position[1] >= baseline.position[1]) throw new Error('Movement did not reach Python');
     await record('moved_to_gatekeeper');

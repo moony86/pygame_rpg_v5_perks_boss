@@ -474,13 +474,8 @@ class Game:
             pygame.draw.circle(self.screen, (20, 80, 120), rect.center, 20, 3)
 
     def draw_player_ghost_aura(self):
-        if getattr(self.player, "ghost_timer", 0.0) <= 0:
-            return
-        center = self.camera.apply_pos(pygame.Vector2(self.player.rect.center))
-        pulse = 1.0 + 0.18 * abs(math.sin(pygame.time.get_ticks() * 0.018))
-        radius = round(42 * pulse)
-        pygame.draw.circle(self.screen, (80, 220, 255), (round(center.x), round(center.y)), radius, 4)
-        pygame.draw.circle(self.screen, (210, 255, 255), (round(center.x), round(center.y)), radius + 9, 2)
+        from systems.speed_presentation import draw
+        draw(self.screen,self.camera,self.player)
 
     def resolve_enemy_crowding(self):
         enemies = [
@@ -885,6 +880,8 @@ class Game:
                         # ─── [تحسين 2] جلب العقبات القريبة من هذا العدو بالتحديد ───
                         nearby_enemy_colliders = self.collision.get_nearby_colliders(enemy.rect)
                         action = enemy.update(dt, self.player.rect, nearby_enemy_colliders)
+                        if enemy.encounter is not None:
+                            enemy.encounter.tick_hazards(dt,self.player,self.enemy_bullets)
 
                         current_phase = getattr(enemy, "phase", None) if getattr(enemy, "type", None) == EnemyType.BOSS else None
                         if previous_phase is not None and current_phase is not None and current_phase != previous_phase:

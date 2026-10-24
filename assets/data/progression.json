@@ -1,0 +1,7 @@
+{
+  "depth_difficulty": 0.42,
+  "clear_difficulty": 0.12,
+  "max_difficulty": 3.8,
+  "max_contact_multiplier": 1.85,
+  "required_combat_fraction": 1.0
+}

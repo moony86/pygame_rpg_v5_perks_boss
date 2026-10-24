@@ -26,8 +26,15 @@ def handle_hub_events (game, event):
             elif npc.role == "tea_vendor":
                 game.gatekeeper_ready = False
                 game.player.receive_tea()
-                game.dialogue.show(npc.name, "Best tea in the world.")
+                game.dialogue.show(npc.name, "Tea ready. Press T to drink. A peaceful break before the trial; this is not a combat buff.")
                 game.message = "Tea acquired. Press T to drink."
+            elif npc.role == 'seer':
+                game.gatekeeper_ready = False
+                if game.dialogue.active and game.dialogue.current_speaker == npc.name:
+                    game.dialogue.close()
+                else:
+                    cleared, required = game.stage.boss_progress
+                    game.dialogue.show(npc.name, f'Warden seals: {cleared}/{required}. Clear the combat chambers. The Warden gate opens in a cleared room, not at a map exit. Press E twice there to confirm the trial.')
             else:
                 game.gatekeeper_ready = False
                 game.dialogue.toggle_npc(npc)

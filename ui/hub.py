@@ -36,6 +36,9 @@ def handle_click(game, event):
 
 def draw(surface, game):
     font = game.font
+    if getattr(game.player, 'tea_state', None) == 'holding':
+        label = font.render('[T] Drink tea — a quiet break before the trial', True, TEXT)
+        surface.blit(label, label.get_rect(midbottom=(surface.get_width()//2, 960)))
     selected = nearest_npc(game.player, game.npcs)
     for npc in game.npcs:
         config = HUB['npcs'].get(npc.role)

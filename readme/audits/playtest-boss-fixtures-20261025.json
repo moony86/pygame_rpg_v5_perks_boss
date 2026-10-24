@@ -1,0 +1,210 @@
+{
+  "limitations": "Shooting/walking bot with periodic input-path dash. Not a human balance verdict.",
+  "attempts": [
+    {
+      "seed": 38,
+      "outcome": "stage_complete",
+      "simulated_seconds": 47.12,
+      "post_outcome_hp": 125,
+      "kills": 15,
+      "cleared_rooms": 1,
+      "total_rooms": 10,
+      "choices": [
+        "power_rounds"
+      ],
+      "trace": [
+        {
+          "room": 10,
+          "type": "Boss",
+          "at_seconds": 0.02,
+          "hp": 221,
+          "level": 18
+        }
+      ],
+      "rooms": [
+        {
+          "room": 10,
+          "type": "Boss",
+          "clear_room_seconds": 44.15,
+          "hp_at_clear": 204,
+          "level_at_clear": 19
+        }
+      ],
+      "bot_has_dash_policy": true,
+      "build": "Gunslinger",
+      "diagnostic_boss_fixture": true,
+      "dash_uses": 7,
+      "enemy_actions": {
+        "boss_trial:intro": 1,
+        "boss_trial:warning": 8,
+        "boss_trial:attack": 8,
+        "boss_trial:rise": 2,
+        "boss_trial:summon_warning": 2,
+        "boss_trial:reinforcements": 2,
+        "enemy_shoot:": 3,
+        "boss_trial:landing": 2,
+        "boss_trial:phase": 2,
+        "boss_trial:healing": 3,
+        "hunter_homing:": 2,
+        "brute_charge:": 1
+      },
+      "max_enemies": 7,
+      "max_enemy_bullets": 32,
+      "reset_clean": true
+    },
+    {
+      "seed": 38,
+      "outcome": "stage_complete",
+      "simulated_seconds": 112.5,
+      "post_outcome_hp": 125,
+      "kills": 15,
+      "cleared_rooms": 1,
+      "total_rooms": 10,
+      "choices": [
+        "overclock"
+      ],
+      "trace": [
+        {
+          "room": 10,
+          "type": "Boss",
+          "at_seconds": 0.02,
+          "hp": 234,
+          "level": 18
+        }
+      ],
+      "rooms": [
+        {
+          "room": 10,
+          "type": "Boss",
+          "clear_room_seconds": 109.55,
+          "hp_at_clear": 202,
+          "level_at_clear": 19
+        }
+      ],
+      "bot_has_dash_policy": true,
+      "build": "Ninja",
+      "diagnostic_boss_fixture": true,
+      "dash_uses": 63,
+      "enemy_actions": {
+        "boss_trial:intro": 1,
+        "boss_trial:warning": 26,
+        "boss_trial:attack": 26,
+        "boss_trial:rise": 2,
+        "boss_trial:summon_warning": 2,
+        "boss_trial:reinforcements": 2,
+        "brute_charge:": 4,
+        "enemy_shoot:": 7,
+        "enemy_jump:": 3,
+        "boss_trial:landing": 2,
+        "boss_trial:phase": 2,
+        "boss_trial:healing": 3,
+        "hunter_homing:": 6
+      },
+      "max_enemies": 7,
+      "max_enemy_bullets": 37,
+      "reset_clean": true
+    },
+    {
+      "seed": 38,
+      "outcome": "stage_complete",
+      "simulated_seconds": 138.53,
+      "post_outcome_hp": 125,
+      "kills": 15,
+      "cleared_rooms": 1,
+      "total_rooms": 10,
+      "choices": [
+        "blade_drone"
+      ],
+      "trace": [
+        {
+          "room": 10,
+          "type": "Boss",
+          "at_seconds": 0.02,
+          "hp": 221,
+          "level": 18
+        }
+      ],
+      "rooms": [
+        {
+          "room": 10,
+          "type": "Boss",
+          "clear_room_seconds": 136.7,
+          "hp_at_clear": 135,
+          "level_at_clear": 19
+        }
+      ],
+      "bot_has_dash_policy": true,
+      "build": "Engineer",
+      "diagnostic_boss_fixture": true,
+      "dash_uses": 20,
+      "enemy_actions": {
+        "boss_trial:intro": 1,
+        "boss_trial:warning": 35,
+        "boss_trial:attack": 35,
+        "boss_trial:rise": 2,
+        "boss_trial:summon_warning": 2,
+        "boss_trial:reinforcements": 2,
+        "brute_charge:": 3,
+        "enemy_jump:": 3,
+        "boss_trial:landing": 2,
+        "boss_trial:phase": 2,
+        "boss_trial:healing": 1,
+        "enemy_shoot:": 2
+      },
+      "max_enemies": 7,
+      "max_enemy_bullets": 33,
+      "reset_clean": true
+    },
+    {
+      "seed": 38,
+      "outcome": "stage_complete",
+      "simulated_seconds": 87.25,
+      "post_outcome_hp": 125,
+      "kills": 15,
+      "cleared_rooms": 1,
+      "total_rooms": 10,
+      "choices": [
+        "glass_cannon"
+      ],
+      "trace": [
+        {
+          "room": 10,
+          "type": "Boss",
+          "at_seconds": 0.02,
+          "hp": 229,
+          "level": 18
+        }
+      ],
+      "rooms": [
+        {
+          "room": 10,
+          "type": "Boss",
+          "clear_room_seconds": 84.07,
+          "hp_at_clear": 212,
+          "level_at_clear": 19
+        }
+      ],
+      "bot_has_dash_policy": true,
+      "build": "Vampire",
+      "diagnostic_boss_fixture": true,
+      "dash_uses": 13,
+      "enemy_actions": {
+        "boss_trial:intro": 1,
+        "boss_trial:warning": 19,
+        "boss_trial:attack": 19,
+        "boss_trial:rise": 2,
+        "boss_trial:summon_warning": 2,
+        "boss_trial:reinforcements": 2,
+        "brute_charge:": 3,
+        "enemy_jump:": 4,
+        "boss_trial:landing": 2,
+        "boss_trial:phase": 2,
+        "boss_trial:healing": 2,
+        "enemy_shoot:": 4
+      },
+      "max_enemies": 7,
+      "max_enemy_bullets": 29,
+      "reset_clean": true
+    }
+  ]
+}

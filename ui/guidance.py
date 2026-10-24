@@ -20,7 +20,10 @@ def draw_guidance(surface, game):
     elif state in ("ROOM", "BOSS"):
         node = getattr(game.stage, "current_node", None)
         if node and node.cleared:
-            text = "Room clear - choose a door and press E"
+            cleared, required = game.stage.boss_progress
+            text = ('WARDEN GATE OPEN — upper center / E twice to confirm' if game.stage.boss_unlocked and not node.room.boss
+                    else 'Trial complete — press E to return' if node.room.boss
+                    else f'Room clear — choose a door / Warden seals {cleared}/{required}')
         elif game.room_flow.run_time < 8:
             text = "WASD move  |  Mouse fire  |  Release Space: skill  |  Hold Tab: stats & map"
         else:

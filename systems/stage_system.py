@@ -1,4 +1,5 @@
 from dataclasses import dataclass, replace
+import math
 import random
 
 import pygame
@@ -202,10 +203,22 @@ def _stage_distances(start, edges):
 
 
 class StageSystem:
+    @staticmethod
+    def milestone_nodes(nodes):
+        """Keep authored transit routes intact; move the actual trial off-route."""
+        source = next(n for n in nodes if n.room.boss)
+        boss_room = replace(source.room,index=len(nodes)+1)
+        source.room = replace(source.room,boss=False,room_type=RoomType.COMBAT,
+                              label='Antechamber',spawn_plan=(),active_cap=0,
+                              reward_xp=0,reward_gold=0)
+        position = (min(n.grid_pos[0] for n in nodes)-2,min(n.grid_pos[1] for n in nodes)-2)
+        boss = StageMapNode(boss_room,position,{})
+        return (*nodes,boss)
+
     def __init__(self, game):
         self.game = game
         self.stage_number = 1
-        self.nodes = playable_nodes(build_stage_map)
+        self.nodes = self.milestone_nodes(playable_nodes(build_stage_map))
         self.rooms = tuple(node.room for node in self.nodes)
         self.node_by_pos = {node.grid_pos: node for node in self.nodes}
         self.active = False
@@ -213,6 +226,7 @@ class StageSystem:
         self.room_index = 0
         self.current_pos = (0, 0)
         self.entry_door = None
+        self.boss_confirmation = None
 
     @property
     def current_room(self):
@@ -226,7 +240,7 @@ class StageSystem:
         return self.node_by_pos.get(self.current_pos)
 
     def start_stage(self):
-        self.nodes = playable_nodes(build_stage_map)
+        self.nodes = self.milestone_nodes(playable_nodes(build_stage_map))
         self.rooms = tuple(node.room for node in self.nodes)
         self.node_by_pos = {node.grid_pos: node for node in self.nodes}
         self.active = True
@@ -234,6 +248,7 @@ class StageSystem:
         self.room_index = 0
         self.current_pos = (0, 0)
         self.entry_door = None
+        self.boss_confirmation = None
         self.game.room_number = self.current_room.index
         self.game.show_wave_notice("BUILDING STAGE MAP")
         self._enter_current_room()
@@ -267,10 +282,26 @@ class StageSystem:
         node = self.current_node
         if node is None or not node.cleared:
             return False
+        if not node.room.boss and self.boss_unlocked and player_rect.colliderect(self.boss_gate_rect()):
+            now = pygame.time.get_ticks()
+            confirmation = self.boss_confirmation
+            if not confirmation or confirmation[0] != self.current_pos or now > confirmation[1]:
+                self.boss_confirmation = (self.current_pos, now+5000)
+                self.game.message = 'WARDEN TRIAL — press E again to enter. No return until victory or defeat.'
+                self.game.show_wave_notice('BOSS READY — PRESS E AGAIN')
+                return False
+            target = next(n for n in self.nodes if n.room.boss)
+            self.boss_confirmation = None
+            self.current_pos = target.grid_pos
+            self.entry_door = None
+            self._enter_current_room()
+            return True
         for door in self.current_doors():
             target_pos = node.neighbors.get(door.id)
             if target_pos is None:
                 continue
+            if self.node_by_pos[target_pos].room.boss:
+                continue  # Boss is an explicit milestone gate, never an accidental neighbor.
             door_rect = self.door_rect(door.id)
             if player_rect.colliderect(door_rect):
                 self.current_pos = target_pos
@@ -285,7 +316,11 @@ class StageSystem:
         node = self.current_node
         if node is None:
             return
+        previously_unlocked = self.boss_unlocked
         node.cleared = True
+        if self.boss_unlocked and not previously_unlocked:
+            self.game.show_wave_notice('WARDEN GATE OPEN — FINISH EXPLORING OR ENTER')
+            self.game.audio.play('boss_phase')
         for target_pos in node.neighbors.values():
             self.node_by_pos[target_pos].discovered = True
 
@@ -304,7 +339,42 @@ class StageSystem:
         node = self.current_node
         if node is None:
             return []
-        return [(door_id, target_pos, self.door_rect(door_id)) for door_id, target_pos in node.neighbors.items()]
+        return [(door_id, target_pos, self.door_rect(door_id)) for door_id, target_pos in node.neighbors.items()
+                if not self.node_by_pos[target_pos].room.boss]
+
+    @property
+    def boss_progress(self):
+        rooms = [n for n in self.nodes if not n.room.boss and n.room.spawn_plan]
+        from systems.stage_progression import TUNING
+        return sum(n.cleared for n in rooms), math.ceil(len(rooms)*TUNING['required_combat_fraction'])
+
+    @property
+    def boss_unlocked(self):
+        cleared, required = self.boss_progress
+        return cleared >= required
+
+    def boss_gate_rect(self):
+        # Dedicated safe upper-center slot, separate from normal route exits.
+        rect = pygame.Rect(0,0,100,100)
+        solids = self.game.collision.get_colliders()
+        for point in ((960,180),(960,850),(650,180),(1270,180),(960,540)):
+            rect.center = point
+            if not any(rect.inflate(44,44).colliderect(s) for s in solids):
+                break
+        return rect
+
+    def draw_boss_gate(self, surface, camera, font):
+        node = self.current_node
+        if not node or node.room.boss or not node.cleared or not self.boss_unlocked:
+            return
+        from systems.object_catalog import draw_object
+        rect = camera.apply_rect(self.boss_gate_rect())
+        draw_object(surface,'portal',rect.center,pygame.time.get_ticks()/1000,active=True,size=(100,125))
+        pygame.draw.rect(surface,(255,100,90),rect.inflate(14,20),4,border_radius=12)
+        label = font.render('[E] WARDEN TRIAL — CONFIRM ENTRY',True,(255,190,155))
+        area = label.get_rect(midtop=(rect.centerx,rect.bottom+12))
+        pygame.draw.rect(surface,(12,15,24),area.inflate(18,10),border_radius=5)
+        surface.blit(label,area)
 
     def complete_stage(self):
         self.active = False

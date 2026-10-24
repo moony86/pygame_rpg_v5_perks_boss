@@ -19,6 +19,10 @@ def run(report):
             assert art(role) is not None, role
     for card in PERK_DEFINITIONS:
         assert sprite('card_' + card['key']) is not None, card['key']
+    for key in ('boss_turret','fx_speed_wake'):
+        assert sprite(key) is not None, key
+    from systems.stage_progression import TUNING
+    assert TUNING['max_difficulty']>=1
     enter_hub(game)
     game.draw()
     for npc in game.npcs:
@@ -30,5 +34,5 @@ def run(report):
         game.run_frame(1/60)
     game.reset_run()
     Path(report).write_text(json.dumps({'ok': True, 'frozen_resources': True,
-                                      'checks': ['menu', 'hub_art', 'all_card_art', 'all_npc_panels', 'combat_frames', 'reset']}, indent=2), encoding='utf-8')
+                                      'checks': ['menu', 'hub_art', 'all_card_art', 'all_npc_panels', 'siege_and_speed_art', 'progression_config', 'combat_frames', 'reset']}, indent=2), encoding='utf-8')
     pygame.quit()

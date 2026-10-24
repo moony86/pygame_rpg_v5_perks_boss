@@ -2,7 +2,7 @@
 
 Uses normal stats, offered cards, collisions, damage, enemies and cooldowns.
 Only input devices are mocked. No invulnerability, free perks, teleports or kills.
-The simple bot aims and walks; it deliberately has no dash policy.
+The simple bot aims, walks and taps dash periodically; it is not expert play.
 """
 import argparse
 import json
@@ -80,12 +80,34 @@ def door_toward_uncleared(stage):
     return boss
 
 
-def attempt(seed,seconds):
+def attempt(seed,seconds,build='Gunslinger',boss_fixture=False):
     random.seed(seed)
     game=Game()
     handle_menu_events(game,pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN))
     # Starting the stage is the same public stage entry used by the hub portal.
     game.stage.start_stage()
+    if boss_fixture:
+        # Explicit diagnostic loadout, not earned progression or a normal win.
+        from systems.perk_system import PERKS,STARTER_BUILD_CARDS
+        game.perks.roll_starter_options(game.player)
+        if not any(o.get('build')==build for o in game.perks.current_options):
+            game.perks.reroll_option(game.player,0)
+        game.perks.apply(game.player,next(i for i,o in enumerate(game.perks.current_options) if o.get('build')==build))
+        loadouts={
+            'Gunslinger':{'rapid_fire':3,'power_rounds':3,'split_shot':3,'critical_spark':3,'vital_core':2},
+            'Ninja':{'needle_rounds':3,'rapid_fire':3,'power_rounds':3,'vital_core':3,'overclock':1},
+            'Engineer':{'impact_drive':2,'blade_drone':3,'bomber_drone':3,'kinetic_rounds':3,'rapid_fire':2,'vital_core':2},
+            'Vampire':{'sanguine_rounds':3,'vital_core':3,'blood_trail':2,'glass_cannon':1,'rapid_fire':2,'power_rounds':2}}
+        for key,count in loadouts[build].items():
+            for _ in range(count):
+                perk=next(p for p in PERKS if p['key']==key)
+                game.perks.current_options=[game.perks._option_for_player(perk,game.player)]
+                game.perks.apply(game.player,0)
+        game.player.level=18
+        game.player.health=game.player.max_health
+        game.player.pending_level_ups=0
+        game.stage.current_pos=next(n.grid_pos for n in game.stage.nodes if n.room.boss)
+        game.stage._enter_current_room()
     inputs=defaultdict(bool)
     aim=[960,540]
     firing=[True]
@@ -97,6 +119,16 @@ def attempt(seed,seconds):
     stuck=0
     lastpos=game.player.rect.center
     waypoint=None
+    action_counts=defaultdict(int)
+    original_handle=game.combat_actions.handle
+    def logged_action(action, runtime):
+        action_counts[action['type']+':'+action.get('event','')]+=1
+        return original_handle(action,runtime)
+    game.combat_actions.handle=logged_action
+    max_enemies=max_bullets=0
+    dash_uses=0
+    output_dir=ROOT/'debug_screenshots/front-end'
+    output_dir.mkdir(parents=True,exist_ok=True)
     with patch('pygame.key.get_pressed',side_effect=lambda:inputs), \
          patch('pygame.mouse.get_pressed',side_effect=lambda:(firing[0],False,False)), \
          patch.object(game,'game_mouse_pos',side_effect=lambda:tuple(aim)):
@@ -105,8 +137,20 @@ def attempt(seed,seconds):
                 break
             if game.state==GameState.PERK_SELECT:
                 options=game.perks.current_options
-                priority=('rapid_fire','power_rounds','impact_drive','blade_drone','bomber_drone','vital_core')
-                index=min(range(len(options)),key=lambda i:priority.index(options[i]['key']) if options[i]['key'] in priority else 99)
+                if game.player.starter_choice_active:
+                    if not any(o.get('build')==build for o in options):
+                        game.perks.reroll_option(game.player,0)
+                    index=next(i for i,o in enumerate(game.perks.current_options) if o.get('build')==build)
+                    choices.append(game.perks.current_options[index]['key'])
+                    choose_perk(game,index)
+                    continue
+                priority={'Gunslinger':('rapid_fire','power_rounds','split_shot','critical_spark','vital_core'),
+                    'Ninja':('phantom_step','overclock','needle_rounds','power_rounds','vital_core'),
+                    'Engineer':('blade_drone','bomber_drone','impact_drive','kinetic_rounds','overclock','vital_core'),
+                    'Vampire':('sanguine_rounds','vital_core','blood_pact','glass_cannon','power_rounds')}[build]
+                health_cost={'phantom_step':20,'overclock':15,'glass_cannon':40}
+                safe=[i for i,o in enumerate(options) if game.player.max_health-health_cost.get(o['key'],0)>=90]
+                index=min(safe or range(len(options)),key=lambda i:priority.index(options[i]['key']) if options[i]['key'] in priority else 99)
                 choices.append(options[index]['key'])
                 choose_perk(game,index)
                 continue
@@ -123,6 +167,8 @@ def attempt(seed,seconds):
                 last_room=node.grid_pos
                 print(f'seed={seed} entered room={node.room.index} hp={game.player.health}',flush=True)
             living=[e for e in game.enemies if e.alive]
+            max_enemies=max(max_enemies,len(living))
+            max_bullets=max(max_bullets,len(game.enemy_bullets))
             if living:
                 targetable=[e for e in living if not (getattr(e,'encounter',None) and e.encounter.airborne)]
                 objectives=[e for e in targetable if getattr(e,'is_boss_eye',False)]
@@ -133,6 +179,8 @@ def attempt(seed,seconds):
             if node.cleared:
                 if node.room.boss:
                     goal=pygame.Vector2(game.room_exit_rect.center)
+                elif game.stage.boss_unlocked:
+                    goal=pygame.Vector2(game.stage.boss_gate_rect().center)
                 else:
                     door=door_toward_uncleared(game.stage)
                     if door is None:
@@ -178,6 +226,11 @@ def attempt(seed,seconds):
             dx,dy=best or (0,0)
             inputs.clear()
             inputs.update({pygame.K_d:dx>0,pygame.K_a:dx<0,pygame.K_s:dy>0,pygame.K_w:dy<0})
+            if not node.cleared and frame%105==0:
+                before=game.player.dash_timer
+                handle_combat_events(game,pygame.event.Event(pygame.KEYDOWN,key=pygame.K_SPACE))
+                handle_combat_events(game,pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
+                dash_uses+=int(game.player.dash_timer>before)
             game.update(1/60)
             stuck=stuck+1 if game.player.rect.center==lastpos else 0
             lastpos=game.player.rect.center
@@ -187,9 +240,11 @@ def attempt(seed,seconds):
     result={'seed':seed,'outcome':'stage_complete' if game.stage.completed else 'death' if game.state==GameState.GAME_OVER else 'timeout_or_navigation_limit',
             'simulated_seconds':round(elapsed,2),'post_outcome_hp':game.player.health,'kills':game.total_kills,
             'cleared_rooms':sum(n.cleared for n in game.stage.nodes),'total_rooms':len(game.stage.nodes),
-            'choices':choices,'trace':trace,'rooms':list(room_results.values()),'bot_has_dash_policy':False}
+            'choices':choices,'trace':trace,'rooms':list(room_results.values()),'bot_has_dash_policy':True,
+            'build':build,'diagnostic_boss_fixture':boss_fixture,'dash_uses':dash_uses,'enemy_actions':dict(action_counts),
+            'max_enemies':max_enemies,'max_enemy_bullets':max_bullets}
     game.draw()
-    pygame.image.save(game.screen,str(ROOT/f'debug_screenshots/front-end/attempt-{seed}.png'))
+    pygame.image.save(game.screen,str(output_dir/f'attempt-{build}-{seed}.png'))
     # End-of-attempt reset is tested even after a bot timeout (explicit reset).
     if game.state==GameState.GAME_OVER:
         handle_end_screen_events(game,pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN))
@@ -206,9 +261,12 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--seconds',type=int,default=600)
     parser.add_argument('--seeds',type=int,nargs='+',default=[17,38,91])
+    parser.add_argument('--builds',nargs='+',choices=('Gunslinger','Ninja','Engineer','Vampire'),default=['Gunslinger'])
+    parser.add_argument('--output',default='attempt-results-boss-trial.json')
+    parser.add_argument('--boss-fixture',action='store_true',help='Explicit pre-equipped diagnostic arena, not normal progression')
     args=parser.parse_args()
-    results=[attempt(seed,args.seconds) for seed in args.seeds]
-    output=ROOT/'debug_screenshots/front-end/attempt-results-boss-trial.json'
-    output.write_text(json.dumps({'limitations':'Simple shooting/walking bot, no dash. Not a human balance verdict.',
+    results=[attempt(seed,args.seconds,build,args.boss_fixture) for build in args.builds for seed in args.seeds]
+    output=ROOT/'debug_screenshots/front-end'/Path(args.output).name
+    output.write_text(json.dumps({'limitations':'Shooting/walking bot with periodic input-path dash. Not a human balance verdict.',
                                  'attempts':results},indent=2),encoding='utf-8')
     print(output)

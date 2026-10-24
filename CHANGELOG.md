@@ -1,5 +1,13 @@
 # Demo overhaul — 2026-10-24
 
+## 2026-10-25 — sanctuary authoring and route pressure
+
+- Added Sanctuary Studio within Level Studio: drag actors/gate/spawn, rectangle and polygon invisible walls, precise coordinates, snap, undo/redo, walk preview, reachability validation, atomic saves and backups. Original hub placement/background preserved for developer authoring.
+- Ordinary enemy difficulty now follows fixed route depth plus cleared combat rooms, with bounded contact damage, rather than staying at 1.0. No player-DPS matching or recolored enemy redesign.
+- Boss arena is separated from transit routes; all combat rooms must be cleared by default, then a dedicated gate appears in the current cleared room and requires explicit confirmation. Former boss map location remains a reward-free passage.
+- Warden approaches faster and attacks more often; phase transitions summon 5 then 6 stronger guards. Timed two-turret siege hazards and delayed radial follow-ups preserve visible warnings and escape sectors; boss HP was not increased.
+- New transparent turret/speed-wake artwork is editable via the asset library. Tea now has an explicit on-screen T prompt. Added progression/editor/hazard regression checks and four-build bot diagnostics with honestly labeled fixtures.
+
 ## Sanctuary and Windows onedir follow-up
 
 - New full sanctuary background and four transparent keeper sprites, with cached rendering, scene labels, perimeter colliders and role-based station placement.

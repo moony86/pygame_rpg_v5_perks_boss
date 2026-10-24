@@ -48,6 +48,10 @@ Prompts: `readme/shot-vfx-prompts.json`. Runtime/editing notes: `readme/SHOT_VFX
 
 ## Warden trial, cube HUD and feedback audio
 
+Follow-up assets `assets/visuals/boss_turret_v1.png` and `speed_wake_v1.png`
+were generated with built-in ImageGen, preserving transparent originals.
+Full prompts and integration notes: `readme/SANCTUARY_AND_PROGRESSION.md`.
+
 `assets/visuals/boss_healing_eye_v1.png` and `hud_health_cell_v1.png`: generated
 with built-in ImageGen, transparent originals retained. Full prompts:
 `readme/boss-hud-generation-prompts.json`. The parry orb reuses the existing

@@ -73,7 +73,7 @@ class Checks(unittest.TestCase):
     def test_two_bounded_summons_and_landing_opening(self):
         self.enc.started=True
         enemies=[self.boss]
-        for phase,count in ((1,3),(2,4)):
+        for phase,count in ((1,5),(2,6)):
             self.enc.phase=phase
             self.enc.next_phase=phase+1
             self.enc.state='transition'
