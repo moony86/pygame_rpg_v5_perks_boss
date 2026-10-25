@@ -1,5 +1,6 @@
 """Local-only visual stage editor. Run directly or double-click Level Editor.bat."""
 import json
+import errno
 import os
 from pathlib import Path
 import secrets
@@ -129,15 +130,33 @@ class Handler(BaseHTTPRequestHandler):
             return self.response(400, {"error": str(error)})
 
 
+class EditorServer(ThreadingHTTPServer):
+    allow_reuse_address = False
+
+
+def create_server(port):
+    # An older editor may still be serving stale routes. Never terminate it:
+    # it can have unsaved edits in a browser. Open a fresh instance elsewhere.
+    for candidate in range(port, min(65536, port + 20)):
+        try:
+            return EditorServer(("127.0.0.1", candidate), Handler)
+        except OSError as error:
+            if error.errno not in (errno.EADDRINUSE, 10048) and getattr(error, 'winerror', None) != 10048:
+                raise
+    raise OSError('No free editor port. Close an unused editor and retry.')
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8770)
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    server = create_server(args.port)
     url = f"http://127.0.0.1:{server.server_port}/"
     print(f"BlueCube Level Studio: {url}", flush=True)
+    if server.server_port != args.port:
+        print(f"Port {args.port} is already occupied. Using a fresh editor at {url}", flush=True)
     if not args.no_browser:
         threading.Timer(.6, lambda: webbrowser.open(url)).start()
     try:

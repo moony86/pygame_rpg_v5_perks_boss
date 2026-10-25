@@ -14,15 +14,29 @@ def wake(angle, opacity, visual_revision):
     return image
 
 
+def update(player, dt, previous_center):
+    trails = [(pos, angle, life-dt) for pos, angle, life
+              in getattr(player, '_speed_wakes', ()) if life > dt]
+    delta = pygame.Vector2(player.rect.center)-previous_center
+    # Discard old scene positions; never join a teleport with a giant streak.
+    if delta.length_squared() > 160**2 or player.ghost_timer <= 0:
+        trails = []
+    elif delta.length_squared() > 0:
+        clock = getattr(player, '_speed_wake_clock', 0.) + dt
+        if clock >= .04:
+            direction = delta.normalize()
+            angle = round(pygame.Vector2(1,-1).angle_to(-direction)/15)*15 % 360
+            trails.append((pygame.Vector2(player.rect.center)-direction*14, angle, .20))
+            clock %= .04
+        player._speed_wake_clock = clock
+    player._speed_wakes = trails[-6:]
+
+
 def draw(surface, camera, player):
-    if player.ghost_timer<=0:
+    if player.ghost_timer <= 0:
         return
-    direction = player.move_direction
-    if not direction.length_squared():
-        direction = player.aim_direction
-    angle = round((pygame.Vector2(1,-1).angle_to(-direction)) / 15)*15 % 360
-    opacity = 190 if player.ghost_timer>.35 else max(0,round(player.ghost_timer/.35*190/32)*32)
-    image = wake(angle,opacity,revision())
-    if image:
-        center = camera.apply_pos(pygame.Vector2(player.rect.center)-direction*14)
-        surface.blit(image,image.get_rect(center=center))
+    for pos, angle, life in getattr(player, '_speed_wakes', ()):
+        opacity = max(0, min(160, round(life/.20*160/32)*32))
+        image = wake(angle, opacity, revision())
+        if image:
+            surface.blit(image, image.get_rect(center=camera.apply_pos(pos)))

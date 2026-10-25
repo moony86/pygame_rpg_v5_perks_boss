@@ -198,7 +198,8 @@ class Game:
 
 
     def setup_event_listeners(self):
-        self.events.subscribe("player_shoot", lambda data: self.audio.play("shoot"))
+        from systems.class_audio import shoot_cue
+        self.events.subscribe("player_shoot", lambda data: self.audio.play(shoot_cue(data.get('player', self.player))))
         self.events.subscribe("player_dash", lambda data: self.audio.play("dash"))
         self.events.subscribe("enemy_hit", lambda data: self.audio.play("hit"))
         self.events.subscribe("enemy_killed", lambda data: self.audio.play("enemy_death"))
@@ -869,6 +870,9 @@ class Game:
 
             enemies_time_stopped = getattr(self.player, "enemy_time_stop_timer", 0.0) > 0
             with self.profiler.section("enemy update"):
+                if not enemies_time_stopped:
+                    from systems.champion_encounters import sync_escorts
+                    sync_escorts(self.enemies, self.collision.get_colliders(), self.player.rect)
                 if enemies_time_stopped:
                     pass
                 elif self.horde is not None and getattr(self.horde, "enabled", False):

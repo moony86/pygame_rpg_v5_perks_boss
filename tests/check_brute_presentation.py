@@ -31,7 +31,7 @@ class Checks(unittest.TestCase):
         self.assertEqual(enemy.brute_stop_timer,0)
         enemy.update(.42,pygame.Rect(850,500,32,32))
         self.assertEqual(enemy.leap_timer,0)
-        self.assertEqual(enemy.brute_stop_timer,.26)
+        self.assertEqual(enemy.brute_stop_timer,1.15)
 
     def test_cancelled_attack_does_not_fake_charge(self):
         enemy=Enemy(600,500,EnemyType.BRUTE)

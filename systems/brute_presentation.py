@@ -22,7 +22,7 @@ def pose(enemy,image):
         offset.y+=4*progress
     elif enemy.brute_stop_timer>0:
         state='stop'
-        amount=enemy.brute_stop_timer/.26
+        amount=min(1.,enemy.brute_stop_timer/1.15)
         sx,sy=1+.14*amount,1-.12*amount
         offset.y=3*amount
     elif enemy.brute_moving:
@@ -43,7 +43,7 @@ def pose(enemy,image):
 def draw_ground(surface,center,enemy):
     if enemy.brute_stop_timer<=0:
         return
-    progress=1-enemy.brute_stop_timer/.26
+    progress=max(0., min(1., 1-enemy.brute_stop_timer/1.15))
     width=round(40+44*progress)
     ring=sprite('fx_ring',size=(width,width))
     if ring is not None:

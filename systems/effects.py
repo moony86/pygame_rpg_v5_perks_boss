@@ -214,6 +214,17 @@ class EffectsSystem:
             self.sprite_effects.append(SpriteEffect(image, pos,
                 life=visual_definition('fx_impact')['life'], end_scale=1.35 if critical else 1.05, visual_key='fx_impact'))
 
+    def explosion(self, pos, radius):
+        """World-space blast independent of the returning companion's position/state."""
+        image = visual_sprite('fx_explosion')
+        if image is not None:
+            scale = max(1, radius * 2) / max(image.get_size())
+            self.sprite_effects.append(SpriteEffect(image, pos,
+                life=max(.38, visual_definition('fx_explosion')['life']),
+                start_scale=scale * .65, end_scale=scale * 1.12,
+                visual_key='fx_explosion'))
+        self.impact(pos, critical=True)
+
     def projectile_hit(self,shot,pos,target=None,shield=False):
         from systems.shot_presentation import ShotHit
         # Reuse the oldest visual at the existing cap; gameplay hits are untouched.
@@ -274,6 +285,7 @@ class EffectsSystem:
         self.message("MISSILE INBOUND", pos, color=(255, 205, 95))
 
     def airstrike_impact(self, pos, radius):
+        self.explosion(pos, radius)
         for scale, color, life, width in (
             (0.35, (255, 255, 190), 0.18, 5),
             (0.70, (255, 155, 65), 0.30, 5),
@@ -288,18 +300,10 @@ class EffectsSystem:
         if ratio <= 0.0:
             return
         p = camera.apply_pos(pygame.Vector2(pos))
-        cx, cy = round(p.x), round(p.y)
         pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.026)
         radius = round(30 + 42 * ratio + 5 * pulse)
-        layer = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        alpha = round(55 + 120 * ratio)
-        pygame.draw.circle(layer, (60, 225, 255, alpha), (cx, cy), radius, max(2, round(3 + 4 * ratio)))
-        pygame.draw.circle(layer, (255, 255, 255, round(40 + 120 * ratio)), (cx, cy), max(8, round(radius * 0.34)), 2)
-        for index in range(3):
-            angle = pygame.time.get_ticks() * 0.18 + index * 120
-            marker = pygame.Vector2(radius + 7, 0).rotate(angle)
-            pygame.draw.circle(layer, (150, 245, 255, alpha), (round(cx + marker.x), round(cy + marker.y)), max(3, round(4 + 3 * ratio)))
-        surface.blit(layer, (0, 0))
+        from systems.sigil_presentation import draw
+        draw(surface, 'fx_dash_charge', p, radius * 2, 100 + 140 * ratio)
 
     def blade_hit(self, pos, strong=False):
         image = EffectsSystem._blade_impact_image if strong else EffectsSystem._blade_hit_image

@@ -17,14 +17,18 @@ def load():
     doc.setdefault('spawn', [960,660])
     doc.setdefault('gate', [915,105])
     doc.setdefault('polygons', [])
+    doc.setdefault('walkable', [])
     return doc
 
 
 def colliders(doc):
     result = [pygame.Rect(r) for r in doc['colliders']]
     # Conservative 8px rasterization supports concave, editable polygon walls.
-    if doc.get('polygons'):
+    if doc.get('polygons') or doc.get('walkable'):
         surface = pygame.Surface((240,135), pygame.SRCALPHA)
+        if doc.get('walkable'):
+            surface.fill((255,255,255))
+            pygame.draw.polygon(surface,(0,0,0,0),[(x//8,y//8) for x,y in doc['walkable']])
         for polygon in doc['polygons']:
             pygame.draw.polygon(surface, (255,255,255), [(x//8,y//8) for x,y in polygon])
         mask = pygame.mask.from_surface(surface)
@@ -80,9 +84,16 @@ def validate(doc):
         for r in doc['colliders']:
             if not isinstance(r,list) or len(r)!=4 or any(type(v) is not int for v in r) or not (r[0]>=0 and r[1]>=0 and r[2]>0 and r[3]>0 and r[0]+r[2]<=1920 and r[1]+r[3]<=1080):
                 errors.append('Invalid collider rectangle.')
-        for p in doc['polygons']:
-            if not isinstance(p,list) or not 3<=len(p)<=32 or not all(point(v) for v in p):
-                errors.append('A polygon needs 3 to 32 in-bounds points.')
+        def polygon_point(p):
+            return isinstance(p,list) and len(p)==2 and all(type(v) is int for v in p) and 0<=p[0]<=1920 and 0<=p[1]<=1080
+        polygons=list(doc['polygons'])
+        if doc.get('walkable'):
+            polygons.append(doc['walkable'])
+        for p in polygons:
+            if not isinstance(p,list) or not 3<=len(p)<=512 or not all(polygon_point(v) for v in p):
+                errors.append('المضلع يحتاج 3 إلى 512 نقطة داخل المشهد.')
+            elif abs(sum(a[0]*b[1]-b[0]*a[1] for a,b in zip(p,p[1:]+p[:1])))<128:
+                errors.append('مساحة المضلع صغيرة جدًا أو نقاطه على خط واحد.')
         if errors:
             return errors
         solids = colliders(doc)

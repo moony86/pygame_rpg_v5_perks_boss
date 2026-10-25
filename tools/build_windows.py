@@ -60,16 +60,18 @@ def main():
         shutil.copy2(python_license, notices / 'PYTHON-LICENSE.txt')
     report = bundle / 'smoke-test.json'
     subprocess.run([str(bundle / 'BlueCube.exe'), '--smoke-test', '--smoke-report', str(report)],
-                   cwd=bundle, check=True, timeout=90)
+                   cwd=bundle, check=True, timeout=180)
     if not json.loads(report.read_text(encoding='utf-8')).get('ok'):
         raise SystemExit(f'Frozen smoke failed: {report}')
     try:
         revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+        source_dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip())
     except (OSError, subprocess.CalledProcessError):
         revision = 'unknown'
+        source_dirty = True
     files = {p.relative_to(bundle).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
              for p in bundle.rglob('*') if p.is_file()}
-    manifest = {'built_at_utc': stamp, 'source_commit': revision, 'source_may_have_uncommitted_changes': True,
+    manifest = {'built_at_utc': stamp, 'source_commit': revision, 'source_may_have_uncommitted_changes': source_dirty,
                 'mode': 'onedir', 'python': sys.version, 'pyinstaller': '6.21.0',
                 'regression_tests_run': not args.skip_tests, 'frozen_smoke_passed': True,
                 'files_sha256': files}

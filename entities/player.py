@@ -124,6 +124,8 @@ class Player:
         self.dash_invuln_bonus = 0.0
         self.surge_timer = 0.0
         self.ghost_timer = 0.0
+        self._speed_wakes = []
+        self._speed_wake_clock = 0.0
         self.enemy_time_stop_timer = 0.0
         self.active_skill = "dash"
         self.weapon_damage_multiplier = 1.0
@@ -350,6 +352,8 @@ class Player:
         self.dash_invuln_bonus = 0.0
         self.surge_timer = 0.0
         self.ghost_timer = 0.0
+        self._speed_wakes = []
+        self._speed_wake_clock = 0.0
         self.enemy_time_stop_timer = 0.0
         self.active_skill = "dash"
         self.weapon_damage_multiplier = 1.0
@@ -690,7 +694,8 @@ class Player:
         if self.dash_timer > 0:
             self.dash_timer = max(0, self.dash_timer - dt)
         if self.dash_timer <= 0:
-            self.ninja_chain_active = False
+            if self.ninja_chain_active:
+                self.finish_ninja_chain()
         if self.dash_cooldown_timer > 0:
             self.dash_cooldown_timer = max(0, self.dash_cooldown_timer - dt)
         if getattr(self, "dash_wall_bounce_cooldown", 0.0) > 0:
@@ -769,6 +774,15 @@ class Player:
                     self._dash_wall_bounce(axis="y")
 
         self.rect.clamp_ip(current_room_rect())
+        from systems.speed_presentation import update as update_speed_wake
+        update_speed_wake(self, dt, self.dash_previous_center)
+
+    def finish_ninja_chain(self):
+        """A brief controllable exit window, not permanent contact immunity."""
+        self.dash_timer = 0.0
+        self.velocity.update(0, 0)
+        self.ninja_chain_active = False
+        self.invulnerable_timer = max(self.invulnerable_timer, .35)
 
     def _dash_charge_cost(self, variant):
         if variant == "super":
@@ -779,9 +793,7 @@ class Player:
 
     def _dash_wall_bounce(self, axis):
         if self.ninja_chain_active:
-            self.dash_timer = 0.0
-            self.velocity.update(0, 0)
-            self.ninja_chain_active = False
+            self.finish_ninja_chain()
             self.dash_strike_active_this_frame = False
             return
         if self.dash_timer <= 0 or getattr(self, "dash_wall_bounce_cooldown", 0.0) > 0:
@@ -821,9 +833,7 @@ class Player:
         target = next_chain_target(self, enemies, self.ninja_dash_solids)
         if target is None:
             # End a lethal lunge here instead of overshooting into contact damage.
-            self.dash_timer = 0.0
-            self.velocity.update(0, 0)
-            self.ninja_chain_active = False
+            self.finish_ninja_chain()
             return False
         delta = pygame.Vector2(target.rect.center) - self.rect.center
         self.dash_direction = delta.normalize()
@@ -1245,7 +1255,11 @@ class Player:
         return True
 
     def _current_player_sprite(self):
-        art = object_sprite('hero', frame=int(self.anim_time*object_definition('hero')['fps']))
+        from systems.class_appearance import hero_key
+        key = hero_key(self)
+        art = object_sprite(key, frame=int(self.anim_time*object_definition(key)['fps']))
+        if art is None and key != 'hero':
+            art = object_sprite('hero', frame=int(self.anim_time*object_definition('hero')['fps']))
         if art is not None:
             from systems.actor_presentation import hero_pose
             art=hero_pose(self,art)
@@ -1346,9 +1360,10 @@ class Player:
             surface.blit(image, rect)
 
     def _draw_engineer_bomber(self, surface, camera):
-        if self.engineer_bomber_max_runs <= 0 or self.engineer_bomber_state == "inactive":
-            return
-        centers = [self.engineer_bomber_pos]
+        # Airstrike owns its telegraph even without the Bomber upgrade.
+        centers = ([self.engineer_bomber_pos]
+                   if self.engineer_bomber_max_runs > 0 and self.engineer_bomber_state != "inactive"
+                   else [])
         if self.engineer_bomber_count > 1 and self.engineer_bomber_state not in ("flying",):
             centers.append(pygame.Vector2(self.rect.center) + pygame.Vector2(62, -46))
         for bomber_pos in centers:
@@ -1367,19 +1382,12 @@ class Player:
             if not companion_presentation.draw(surface, 'companion_bomber', center, self.anim_time,
                                                 flash=self.engineer_bomber_state == 'flying'):
                 pygame.draw.circle(surface, color, center, 13)
-            if self.engineer_bomber_explosion_flash > 0:
-                pygame.draw.circle(surface, (255, 120, 45), center, self.engineer_bomber_radius, 3)
         if self.engineer_airstrike_state == "telegraph":
             target = camera.apply_pos(self.engineer_airstrike_target_pos)
             center = (round(target.x), round(target.y))
-            pulse = 4 + int(3 * abs(pygame.math.Vector2(1, 0).rotate(self.anim_time * 280).x))
-            pygame.draw.circle(surface, (255, 70, 45), center, self.engineer_airstrike_radius, 3)
-            pygame.draw.circle(surface, (255, 180, 80), center, max(12, self.engineer_airstrike_radius // 2), 2)
-            pygame.draw.circle(surface, (255, 245, 180), center, 26 + pulse, 2)
-            pygame.draw.line(surface, (255, 220, 120), (center[0] - 22, center[1]), (center[0] + 22, center[1]), 3)
-            pygame.draw.line(surface, (255, 220, 120), (center[0], center[1] - 22), (center[0], center[1] + 22), 3)
-            pygame.draw.line(surface, (255, 100, 50), (center[0] - self.engineer_airstrike_radius, center[1]), (center[0] - 40, center[1]), 1)
-            pygame.draw.line(surface, (255, 100, 50), (center[0] + 40, center[1]), (center[0] + self.engineer_airstrike_radius, center[1]), 1)
+            from systems.sigil_presentation import draw
+            draw(surface, 'fx_airstrike_target', center, self.engineer_airstrike_radius * 2,
+                 200 + 40 * abs(pygame.Vector2(1, 0).rotate(self.anim_time * 280).x))
 
     def _draw_blood_orb(self, surface, screen_rect):
         if self.vampire_max_blood <= 0:
@@ -1439,11 +1447,15 @@ class Player:
         return True
 
     def _draw_vampire_states(self, surface, screen_rect):
+        from systems.sigil_presentation import draw
         if self.vampire_blood_moon_timer > 0:
-            pygame.draw.circle(surface, (170, 20, 45), screen_rect.center, screen_rect.width // 2 + 24, 3)
-            pygame.draw.circle(surface, (255, 90, 120), (screen_rect.centerx + 22, screen_rect.top - 24), 9)
+            draw(surface, 'fx_vampire_aura', screen_rect.center, screen_rect.width + 48,
+                 angle=self.anim_time * 35)
+            self._draw_companion_art(surface, 'companion_blood',
+                                     (screen_rect.centerx + 22, screen_rect.top - 24), scale=.5)
         elif self.vampire_feast_timer > 0:
-            pygame.draw.circle(surface, (220, 35, 75), screen_rect.center, screen_rect.width // 2 + 15, 2)
+            draw(surface, 'fx_vampire_aura', screen_rect.center, screen_rect.width + 30, 170,
+                 angle=-self.anim_time * 25)
 
     def _draw_sprite_weapon(self, surface, screen_rect):
         if (self.ninja_dash_charges_enabled and self.dash_strike_damage > 0
@@ -1456,7 +1468,12 @@ class Player:
 
         if self.active_weapon_key == "pistol":
             pose = pistol_pose(screen_rect.center, self.aim_direction, self.gun_shoot_timer)
-            render_pistol(surface, object_sprite('pistol', frame=int(self.anim_time*object_definition('pistol')['fps'])) or Player._gun_image, pose, self.gun_shoot_timer)
+            from systems.class_weapon_presentation import draw_held, identity
+            held = draw_held(surface, self, pose)
+            if held:
+                return
+            if not held:
+                render_pistol(surface, object_sprite('pistol', frame=int(self.anim_time*object_definition('pistol')['fps'])) or Player._gun_image, pose, self.gun_shoot_timer)
             from systems.shot_presentation import draw_charge
             kind='fire' if self.explosive_rounds else 'magic' if self.surge_timer>0 else 'metal'
             charge=getattr(self,'visual_charge',0.)

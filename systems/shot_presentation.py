@@ -186,7 +186,8 @@ def prepare():
     from settings import ENEMY_BULLET_SPEED
     from systems.object_catalog import catalog
     for key in catalog()['objects']:
-        if key.startswith(('bullet_','fx_','enemy_','companion_','visual_')) or key in ('hero','pistol','sword','portal','heal_potion','dash_refresh','time_stop'):
+        if key.startswith(('bullet_','fx_','enemy_','companion_','visual_', 'hero_', 'weapon_', 'shot_',
+                           'launch_', 'trail_', 'impact_', 'target_')) or key in ('hero','pistol','sword','portal','heal_potion','dash_refresh','time_stop'):
             sprite(key)
     from systems.environment_art import floor_image
     from settings import SCREEN_WIDTH,SCREEN_HEIGHT
@@ -211,6 +212,9 @@ def prepare():
 
 class ShotHit:
     def __init__(self,shot,pos,target=None,shield=False):
+        self.class_visual = '' if shield else getattr(shot, 'class_visual', '')
+        if not shield and not self.class_visual and getattr(shot, 'source', '') == 'ninja_shuriken':
+            self.class_visual = 'ninja'
         self.kind='magic' if shield else style(shot)
         suffix='hostile' if hasattr(shot,'owner_id') and not shield else self.kind
         self.key='fx_sparks_'+suffix
@@ -228,6 +232,9 @@ class ShotHit:
         self.alive=self.life>0
 
     def draw(self,surface,camera):
+        from systems.class_weapon_presentation import draw_hit
+        if draw_hit(surface, camera, self) and self.kind != 'fire':
+            return
         progress=1-max(0.,self.life/self.max_life)
         config=definition(self.key)
         size=(max(1,round(config['width']*.75)),max(1,round(config['height']*.75)))

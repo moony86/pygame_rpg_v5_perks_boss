@@ -166,6 +166,17 @@ class Enemy:
         self.brute_stop_timer = 0.
         self.brute_stride = 0.
         self.brute_moving = False
+        self.brute_slam_pending = 0.
+        self.champion_block_timer = 0.
+        self.last_damage = 0
+        self.champion_owner = None
+        self.escort_spawned = False
+        self.escort_guards = []
+        self.escort_had_guards = False
+        self.escort_broken = False
+        self.elite_state = 'chase'
+        self.elite_timer = 0.
+        self.elite_move_remaining = 0.
         self.visual_stride = 0.
         self.visual_moving = False
         self.visual_windup_total = 0.
@@ -214,6 +225,7 @@ class Enemy:
         self.ranged_release_timer = max(0., self.ranged_release_timer-dt)
         self.jumper_landing_timer = max(0., self.jumper_landing_timer-dt)
         self.brute_stop_timer = max(0., self.brute_stop_timer-dt)
+        self.champion_block_timer = max(0., self.champion_block_timer-dt)
         self.brute_moving = False
         self.visual_release_timer=max(0.,self.visual_release_timer-dt)
         self.visual_moving=False
@@ -238,6 +250,17 @@ class Enemy:
         if self.encounter is not None:
             return self.encounter.update(dt, player_rect)
 
+        if self.type == EnemyType.ELITE:
+            from systems.champion_encounters import update_elite
+            return update_elite(self, dt, player_rect)
+        if self.brute_slam_pending > 0:
+            self.brute_slam_pending = max(0., self.brute_slam_pending-dt)
+            if self.brute_slam_pending == 0:
+                return {'type': 'champion_slam', 'enemy': self, 'radius': 110}
+            return None
+        if self.type == EnemyType.BRUTE and self.brute_stop_timer > 0:
+            return None
+
         if self.windup_timer > 0:
             self.windup_timer = max(0, self.windup_timer - dt)
             if self.windup_timer <= 0:
@@ -247,7 +270,7 @@ class Enemy:
         if self.leap_timer > 0:
             old_rect = self.rect.copy()
             self.leap_timer = max(0, self.leap_timer - dt)
-            self._move_vector(self.leap_velocity * dt, ignore_solids=True)
+            self._move_vector(self.leap_velocity * dt, ignore_solids=self.type != EnemyType.BRUTE)
             self.rect.clamp_ip(current_room_rect())
             if self.leap_timer <= 0:
                 self._resolve_leap_landing(old_rect)
@@ -255,7 +278,8 @@ class Enemy:
                 if is_jumper(self):
                     self.jumper_landing_timer = .22
                 elif self.type == EnemyType.BRUTE:
-                    self.brute_stop_timer = .26
+                    self.brute_stop_timer = 1.15
+                    self.brute_slam_pending = .28
             return None
 
         player_center = pygame.Vector2(player_rect.center)
@@ -436,7 +460,7 @@ class Enemy:
 
     def _update_brute(self, distance, direction, dt):
         has_sight = self._has_line_of_sight()
-        if distance <= 560 and self.attack_cooldown <= 0 and has_sight:
+        if distance <= 340 and self.attack_cooldown <= 0 and has_sight:
             aim = self._predictive_direction(0.42, 55)
             self._start_windup(0.46, aim, "brute_charge")
             self.attack_cooldown = max(1.05, 1.95 / self.attack_speed_multiplier)
@@ -537,7 +561,7 @@ class Enemy:
                 self.attack_cooldown = min(self.attack_cooldown, 0.35)
                 return None
             self.leap_timer = 0.42
-            self.leap_velocity = self.windup_direction * (660 * min(1.65, self.speed_scale / 1.45))
+            self.leap_velocity = self.windup_direction * 720
             return {"type": "brute_charge"}
 
         if action == "enemy_rain":
@@ -671,6 +695,15 @@ class Enemy:
     def take_damage(self, amount, reflected=False):
         if self.encounter is not None:
             return self.encounter.damage(amount, reflected=reflected)
+        if self.type == EnemyType.BRUTE and not (self.windup_action == 'brute_charge' or self.brute_stop_timer > 0):
+            self.last_damage = 0
+            self.champion_block_timer = .16
+            return False
+        if self.type == EnemyType.ELITE:
+            from systems.champion_encounters import guards_alive
+            if guards_alive(self):
+                amount *= .25
+        self.last_damage = max(0, amount)
         self.health -= amount
         self.hit_flash = 0.08
         if self.health <= 0:
@@ -736,6 +769,9 @@ class Enemy:
             if self.type.name in REMAINING:
                 art, offset, _ = enemy_pose(self,art)
             surface.blit(art,art.get_rect(center=(sr.centerx+offset[0],sr.centery+offset[1])))
+            if self.type in (EnemyType.BRUTE, EnemyType.ELITE):
+                from systems.champion_encounters import draw
+                draw(self, surface, camera)
             if ranged:
                 draw_cast(surface,sr.center,aim,cast_state,progress)
             if self.type.name in ('HUNTER','ELITE','BOSS') and self.windup_direction.length_squared()>0:

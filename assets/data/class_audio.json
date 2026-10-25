@@ -1,0 +1,6 @@
+{
+  "Ninja": {"shoot": "shoot_ninja", "impact": "impact_ninja", "gain": 0.48},
+  "Engineer": {"shoot": "shoot_engineer", "impact": "impact_engineer", "gain": 0.46},
+  "Vampire": {"shoot": "shoot_vampire", "impact": "impact_vampire", "gain": 0.55},
+  "Gunslinger": {"shoot": "shoot_gunslinger", "impact": "impact_gunslinger", "gain": 0.42}
+}

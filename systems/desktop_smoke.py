@@ -21,6 +21,15 @@ def run(report):
         assert sprite('card_' + card['key']) is not None, card['key']
     for key in ('boss_turret','fx_speed_wake'):
         assert sprite(key) is not None, key
+    from systems.class_audio import CUES
+    from systems.class_appearance import SKINS
+    for key in SKINS.values():
+        assert sprite(key) is not None, key
+    for values in CUES.values():
+        for cue in (values['shoot'], values['impact']):
+            assert (game.audio.sounds_path / (cue + '.wav')).is_file(), cue
+            if game.audio.enabled:
+                assert cue in game.audio.sounds, cue
     from systems.stage_progression import TUNING
     assert TUNING['max_difficulty']>=1
     enter_hub(game)
@@ -34,5 +43,5 @@ def run(report):
         game.run_frame(1/60)
     game.reset_run()
     Path(report).write_text(json.dumps({'ok': True, 'frozen_resources': True,
-                                      'checks': ['menu', 'hub_art', 'all_card_art', 'all_npc_panels', 'siege_and_speed_art', 'progression_config', 'combat_frames', 'reset']}, indent=2), encoding='utf-8')
+                                      'checks': ['menu', 'hub_art', 'all_card_art', 'all_npc_panels', 'siege_and_speed_art', 'class_skins', 'class_audio', 'progression_config', 'combat_frames', 'reset']}, indent=2), encoding='utf-8')
     pygame.quit()

@@ -8,6 +8,15 @@ from systems.world_utils import rotate_vector
 class CombatActionResolver:
     def handle(self, action, game):
         action_type = action["type"]
+        if action_type == 'champion_slam':
+            enemy = action['enemy']
+            radius = action['radius']
+            game.effects.explosion(enemy.rect.center, radius)
+            if (enemy.alive and enemy._has_line_of_sight()
+                    and pygame.Vector2(enemy.rect.center).distance_to(game.player.rect.center) <= radius):
+                game.player.take_damage(round(12 * enemy.damage_multiplier))
+            game.audio.play('hit')
+            return
 
         if action_type == 'boss_trial':
             action['encounter'].arena_solids=tuple(game.collision.get_colliders())

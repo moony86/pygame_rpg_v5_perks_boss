@@ -106,10 +106,13 @@ class ShootingSystem:
                 explosion_splash_ratio=getattr(player, "explosion_splash_ratio", 1 / 3),
             )
             new_proj.visual_style='fire' if getattr(player,'explosive_rounds',False) else 'magic' if getattr(player,'surge_timer',0)>0 else None
+            from systems.class_weapon_presentation import identity
+            new_proj.class_visual = identity(player)
             projectiles.append(new_proj)
 
         if audio:
-            audio.play("shoot")
+            from systems.class_audio import shoot_cue
+            audio.play(shoot_cue(player))
 
         self.shoot_timer = fire_interval
         return True

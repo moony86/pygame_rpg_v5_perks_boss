@@ -46,11 +46,9 @@ def draw(surface, remaining, duration, release):
         center = (w//2, h//2)
         if not reduced and elapsed < .45:
             radius = 110 + round(elapsed*120)
-            color = (90, 190, 220)
-            for tick in range(12):
-                v = pygame.Vector2(0, -1).rotate(tick*30)
-                pygame.draw.line(surface, color, pygame.Vector2(center)+v*(radius-10),
-                                 pygame.Vector2(center)+v*radius, 3)
+            from systems.sigil_presentation import draw as draw_sigil
+            draw_sigil(surface, 'fx_time_sigil', center, radius * 2,
+                       210 * (1 - elapsed / .45))
         title, _ = fonts()
         label = title.render(f'TIME STOP  {remaining:.1f}s', True, (215, 250, 255))
         rect = pygame.Rect(w//2+120, 28, 296, 70)

@@ -48,6 +48,7 @@ class Projectile:
         self.anim_time       = 0.0
         self.visual_trail = []
         self.visual_style = None
+        self.class_visual = ''
         self._body_signature = None
         self._body_image = None
 
@@ -81,6 +82,9 @@ class Projectile:
     def draw(self, surface, camera):
         from systems.shot_presentation import draw_trail,visible
         if not visible(surface,camera,self):
+            return
+        from systems.class_weapon_presentation import draw_projectile
+        if draw_projectile(surface, camera, self):
             return
         draw_trail(surface,camera,self)
         key = ('bullet_drone' if self.source == 'engineer_drone' else

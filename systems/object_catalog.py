@@ -57,7 +57,7 @@ FIELDS = {
     "time_stop": ("duration", "drop_chance", "respawn"),
 }
 for _key, _visual in VISUAL_DEFAULTS.items():
-    FIELDS[_key] = tuple(field for field in _visual if field not in ('name','art','cell','width','height') and field not in COMMON)
+    FIELDS[_key] = tuple(field for field in _visual if field not in ('name','art','cell','width','height','region') and field not in COMMON)
 for _key in FIELDS:
     FIELDS[_key] = FIELDS[_key] + tuple(COMMON)
 
@@ -70,6 +70,7 @@ def validate_catalog(doc):
     objects = doc.get("objects")
     if not isinstance(objects, dict) or set(objects) != set(FIELDS):
         return ["Catalog contains missing or unsupported object IDs"]
+    image_sizes = {}
     for key, fields in FIELDS.items():
         o = objects[key]
         if not isinstance(o, dict):
@@ -84,6 +85,20 @@ def validate_catalog(doc):
             errors.append(f"{key}: image not found: {art}")
         if type(o.get("cell")) is not int or not -1 <= o['cell'] <= 5:
             errors.append(f"{key}: cell must be -1 (whole image) or 0..5 (3x2 atlas)")
+        region = o.get('region')
+        if region is not None and (not isinstance(region, list) or len(region) != 4
+                or any(type(value) is not int for value in region)
+                or any(value < 0 for value in region[:2]) or any(value <= 0 for value in region[2:])):
+            errors.append(f'{key}: region must be [x,y,width,height] in positive image pixels')
+        elif region is not None and isinstance(art, str) and not Path(art).is_absolute() and '..' not in Path(art).parts and (ASSET_ROOT / art).is_file():
+            try:
+                if art not in image_sizes:
+                    image_sizes[art] = pygame.image.load(str(ASSET_ROOT / art)).get_size()
+                width, height = image_sizes[art]
+                if region[0] + region[2] > width or region[1] + region[3] > height:
+                    errors.append(f'{key}: region exceeds source image')
+            except (pygame.error, OSError):
+                errors.append(f'{key}: unreadable atlas image')
         for field in ("width", "height") + fields:
             v = o.get(field)
             if field in COLORS:
@@ -197,10 +212,11 @@ def sprite(key, size=None, frame=0):
     o = definition(key)
     size = tuple(size or (o['width'], o['height']))
     frame = int(frame) % o['frames']
-    cache_key = (key, size, o['art'], o['cell'], frame, o['columns'], o['rows'], o['tint'], o['opacity'])
+    region = tuple(o.get('region', ()))
+    cache_key = (key, size, o['art'], o['cell'], region, frame, o['columns'], o['rows'], o['tint'], o['opacity'])
     if cache_key in _sprites:
         return _sprites[cache_key]
-    source_key=(o['art'],o['cell'],frame,o['columns'],o['rows'],o['frames'])
+    source_key=(o['art'],o['cell'],region,frame,o['columns'],o['rows'],o['frames'])
     image=_source_frames.get(source_key)
     if image is not None:
         _source_frames.move_to_end(source_key)
@@ -211,7 +227,12 @@ def sprite(key, size=None, frame=0):
             return None
         stat=(ASSET_ROOT/o['art']).stat()
         _source_stamps[o['art']]=(stat.st_mtime_ns,stat.st_size)
-        if o['cell'] >= 0:
+        if region:
+            box = pygame.Rect(region)
+            if not image.get_rect().contains(box):
+                raise ValueError(f'{key}: region exceeds source image')
+            image = image.subsurface(box)
+        elif o['cell'] >= 0:
             w,h=image.get_width()//3,image.get_height()//2
             image=image.subsurface(((o['cell']%3)*w,(o['cell']//3)*h,w,h))
         elif o['frames']>1:

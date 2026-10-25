@@ -3,8 +3,10 @@ import sys
 import pygame
 
 from config import CONFIG
+from systems.class_audio import CUES
 
 SOUND_FILES = {
+    **{cue:cue+'.wav' for values in CUES.values() for cue in (values['shoot'], values['impact'])},
     "shoot": "shoot.wav",
     "hit": "hit.wav",
     "enemy_death": "enemy_death.wav",
@@ -35,6 +37,8 @@ CUE_GAINS={'time_stop_tick':.40,'time_stop_tock':.40,'time_stop_pickup':.80,
            'player_hurt':.80,'low_health':.50,
            'time_stop_end':.70,'heal_pickup':.85,'boost_pickup':.85,'boss_guard':.30,
            'boss_eye_heal':.35,'boss_warning':.75,'boss_parry_ready':.85,'ninja_parry':.90}
+CUE_GAINS.update({cue:values['gain'] for values in CUES.values()
+                  for cue in (values['shoot'], values['impact'])})
 
 
 def resource_path(relative_path):

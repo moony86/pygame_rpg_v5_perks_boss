@@ -32,6 +32,7 @@ assets/data/*.json.tmp
 .agents/
 .codex/
 debug_screenshots/
+artifacts/
 dev_snapshots/
 dist_nuitka_demo/
 installer_output/
